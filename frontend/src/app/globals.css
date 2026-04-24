@@ -1,0 +1,186 @@
+@import "tailwindcss";
+
+/* Custom Tailwind Theme */
+@theme {
+  --font-display: var(--font-syne), "Syne", system-ui, sans-serif;
+  --font-body: var(--font-inter), "Inter", system-ui, sans-serif;
+  --animate-fade-lift: fadeLift 0.85s cubic-bezier(0.16, 1, 0.3, 1) both;
+  --animate-marquee: marquee 30s linear infinite;
+  --animate-mascot-float: mascotFloat 4s ease-in-out 1.4s infinite;
+  --animate-slow-spin: slowSpin 18s linear infinite;
+
+  /* Custom Colors mapped from CSS variables */
+  --color-primary: var(--primary);
+  --color-bg: var(--bg);
+  --color-text-main: var(--text);
+  --color-muted: var(--muted);
+  --color-dark: var(--dark);
+  --color-surface: var(--surface);
+  --color-line: var(--line);
+}
+
+/* CSS Variables  */
+:root {
+  --primary: #10b981;
+  --bg: #ffffff;
+  --text: #0f172a;
+  --muted: #64748b;
+  --dark: #0f172a;
+  --surface: #f8fafc;
+  --line: rgba(15, 23, 42, 0.1);
+}
+
+/* Base Resets  */
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  transition: background 0.35s ease, color 0.35s ease;
+}
+
+body.dark {
+  --bg: #0a0a0a;
+  --text: #f3f3f3;
+  --muted: #9aa1ad;
+  --line: rgba(255, 255, 255, 0.14);
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+img {
+  display: block;
+  max-width: 100%;
+}
+
+button {
+  border: 0;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  background: transparent;
+  cursor: pointer;
+}
+
+h1,
+h2,
+h3,
+p,
+dl,
+dd {
+  margin: 0;
+}
+
+ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+::selection {
+  background: var(--primary);
+  color: #0a0a0a;
+}
+
+/* Grid Mark Pseudo-elements (cross lines inside circle)  */
+.grid-mark::before,
+.grid-mark::after {
+  content: "";
+  position: absolute;
+  background: var(--line);
+}
+
+.grid-mark::before {
+  inset: 50% 0 auto;
+  height: 1px;
+}
+
+.grid-mark::after {
+  inset: 0 auto 0 50%;
+  width: 1px;
+}
+
+/* Scroll Reveal  */
+.js-ready [data-animate] {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.js-ready [data-animate].in-view {
+  animation: fadeLift 0.75s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: var(--reveal-delay, 0ms);
+}
+
+/* Keyframes  */
+@keyframes fadeLift {
+  from {
+    opacity: 0;
+    transform: translateY(26px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes marquee {
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes mascotFloat {
+
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-14px);
+  }
+}
+
+@keyframes slowSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes pillIn {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.96);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Reduced Motion  */
+@media (prefers-reduced-motion: reduce) {
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}

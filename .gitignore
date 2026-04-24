@@ -1,0 +1,8 @@
+# Documentation
+docs/
+
+# Environment Variables
+.env*
+
+# Node modules (just in case)
+node_modules/
