@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Syne, Inter } from "next/font/google";
 import type { ReactNode } from "react";
 import "@/styles/globals.css";
@@ -14,6 +14,10 @@ const inter = Inter({
   display: "swap",
   variable: "--font-inter"
 });
+ 
+export const viewport: Viewport = {
+  themeColor: "#10b981",
+};
 
 export const metadata: Metadata = {
   title: "Jivara | Stay on Track, Stay Healthy",
@@ -36,7 +40,6 @@ export const metadata: Metadata = {
     ],
   },
   manifest: "/manifest.json",
-  themeColor: "#10b981",
 };
 
 interface RootLayoutProps {
