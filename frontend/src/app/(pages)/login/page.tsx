@@ -75,7 +75,7 @@ export default function LoginPage() {
                 id="identifier"
                 type="text"
                 className="w-full px-5 py-4 bg-surface shadow-sm rounded-2xl focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-body"
-                placeholder="nama@email.com / +62..."
+                placeholder="nama@email.com"
                 value={identifier}
                 onChange={(e) => setIdentifier(e.target.value)}
               />

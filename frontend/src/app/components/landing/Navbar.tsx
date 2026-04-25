@@ -40,9 +40,9 @@ export default function Navbar() {
           {/* Desktop Nav Links */}
           <div className="hidden lg:flex gap-12 absolute left-1/2 -translate-x-1/2">
             {navLinks.map((link) => (
-              <Link 
-                key={link.name} 
-                href={link.href} 
+              <Link
+                key={link.name}
+                href={link.href}
                 className="group text-xs font-bold tracking-[0.16em] uppercase text-text-main relative transition-colors duration-200 hover:text-primary"
               >
                 {link.name}
@@ -53,36 +53,41 @@ export default function Navbar() {
 
           <div className="flex items-center gap-6">
             <Link href="/login" className="hidden lg:block">
-              <Button
-                size="sm"
-                icon={<LogIn size={16} strokeWidth={2.5} />}
-              >
+              <Button size="sm" icon={<LogIn size={16} strokeWidth={2.5} />}>
                 Masuk
               </Button>
             </Link>
 
             <button
-              className={`flex lg:hidden flex-col gap-[5px] w-11 h-11 justify-center items-center z-[40000] rounded-xl border-[1.5px] cursor-pointer transition-all duration-300 shrink-0 ${
-                isMenuOpen ? "bg-primary border-primary" : "bg-surface border-line"
-              }`}
+              className={`flex lg:hidden flex-col gap-[5px] w-11 h-11 justify-center items-center z-[40000] rounded-xl cursor-pointer transition-all duration-300 shrink-0}`}
               onClick={() => setIsMenuOpen(!isMenuOpen)}
               aria-label={isMenuOpen ? "Close menu" : "Open menu"}
             >
-              <span className={`w-5 h-0.5 transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] pointer-events-none ${isMenuOpen ? "bg-white translate-y-[7px] rotate-45" : "bg-text-main"}`} />
-              <span className={`w-5 h-0.5 transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] pointer-events-none ${isMenuOpen ? "bg-white opacity-0 translate-x-[10px]" : "bg-text-main"}`} />
-              <span className={`w-5 h-0.5 transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] pointer-events-none ${isMenuOpen ? "bg-white -translate-y-[7px] -rotate-45" : "bg-text-main"}`} />
+              <span
+                className={`w-5 h-0.5 transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] pointer-events-none ${isMenuOpen ? "bg-white translate-y-[7px] rotate-45" : "bg-text-main"}`}
+              />
+              <span
+                className={`w-5 h-0.5 transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] pointer-events-none ${isMenuOpen ? "bg-white opacity-0 translate-x-[10px]" : "bg-text-main"}`}
+              />
+              <span
+                className={`w-5 h-0.5 transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] pointer-events-none ${isMenuOpen ? "bg-white -translate-y-[7px] -rotate-45" : "bg-text-main"}`}
+              />
             </button>
           </div>
         </div>
       </nav>
 
       {/* Mobile Drawer */}
-      <div className={`fixed inset-0 z-[35000] transition-[visibility] duration-500 lg:hidden ${isMenuOpen ? "visible pointer-events-auto" : "invisible pointer-events-none"}`}>
+      <div
+        className={`fixed inset-0 z-[35000] transition-[visibility] duration-500 lg:hidden ${isMenuOpen ? "visible pointer-events-auto" : "invisible pointer-events-none"}`}
+      >
         <div
           className={`absolute inset-0 bg-black/40 backdrop-blur-[8px] transition-opacity duration-500 ${isMenuOpen ? "opacity-100" : "opacity-0"}`}
           onClick={() => setIsMenuOpen(false)}
         />
-        <div className={`absolute top-0 right-0 w-4/5 max-w-[340px] h-full bg-bg pt-8 px-8 pb-10 flex flex-col shadow-[-10px_0_50px_rgba(0,0,0,0.1)] transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${isMenuOpen ? "translate-x-0" : "translate-x-full"}`}>
+        <div
+          className={`absolute top-0 right-0 w-4/5 max-w-[340px] h-full bg-bg pt-8 px-8 pb-10 flex flex-col shadow-[-10px_0_50px_rgba(0,0,0,0.1)] transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${isMenuOpen ? "translate-x-0" : "translate-x-full"}`}
+        >
           <div className="flex items-center mb-12">
             <span className="font-display text-2xl font-extrabold tracking-[-0.02em] text-text-main">
               Jivara
@@ -91,10 +96,10 @@ export default function Navbar() {
 
           <div className="flex flex-col gap-8">
             {navLinks.map((link) => (
-              <Link 
-                key={link.name} 
-                href={link.href} 
-                onClick={() => setIsMenuOpen(false)} 
+              <Link
+                key={link.name}
+                href={link.href}
+                onClick={() => setIsMenuOpen(false)}
                 className="group w-fit text-xs font-medium tracking-[0.16em] uppercase text-text-main relative transition-colors duration-200 hover:text-primary"
               >
                 {link.name}
@@ -105,11 +110,7 @@ export default function Navbar() {
 
           <div className="mt-auto">
             <Link href="/login" onClick={() => setIsMenuOpen(false)}>
-              <Button
-                className="w-full"
-                size="lg"
-                icon={<LogIn size={18} />}
-              >
+              <Button className="w-full" size="lg" icon={<LogIn size={18} />}>
                 Masuk
               </Button>
             </Link>
