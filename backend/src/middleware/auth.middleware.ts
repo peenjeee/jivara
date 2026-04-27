@@ -1,7 +1,13 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
+import dotenv from "dotenv";
+dotenv.config();
 
-const JWT_SECRET = process.env.JWT_SECRET || "jivara-secret-key";
+const JWT_SECRET = process.env.JWT_SECRET as string;
+
+if (!JWT_SECRET) {
+  throw new Error("FATAL ERROR: JWT_SECRET is not defined in environment variables.");
+}
 
 // Extend Express Request to include user info
 export interface AuthRequest extends Request {
@@ -39,8 +45,9 @@ export const authenticateToken = (
     };
     req.user = decoded;
     next();
-  } catch (error: any) {
-    if (error.name === "TokenExpiredError") {
+  } catch (error: unknown) {
+    const err = error as { name?: string };
+    if (err.name === "TokenExpiredError") {
       return res.status(401).json({
         status: "error",
         message: "Access token expired",

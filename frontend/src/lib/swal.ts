@@ -26,7 +26,7 @@ const Toast = MySwal.mixin({
  */
 const Alert = MySwal.mixin({
   position: 'center',
-  toast: false, // Standard modal style
+  toast: false,
   showConfirmButton: true,
   timer: 3000,
   timerProgressBar: true,
@@ -91,14 +91,14 @@ export const showConfirm = (title: string = 'Apakah Anda yakin?', text: string =
     title,
     text,
     icon: 'warning',
-    position: 'center', // Keep confirmation centered
-    toast: false, // Normal modal style
+    position: 'center', 
+    toast: false, 
     showConfirmButton: true,
     showCancelButton: true,
     confirmButtonText,
     cancelButtonText: 'Batal',
     reverseButtons: true,
-    timer: undefined, // Don't auto close confirmation
+    timer: undefined,
   });
 };
 

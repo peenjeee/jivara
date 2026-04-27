@@ -4,13 +4,15 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { LogIn } from 'lucide-react';
-import Navbar from "@/app/components/landing/Navbar";
-import Footer from "@/app/components/landing/Footer";
-import axios from 'axios';
+import Navbar from "@/components/landing/Navbar";
+import Footer from "@/components/landing/Footer";
+import api from '@/lib/axios';
 import Cookies from 'js-cookie';
-import { showError, showWarning, showLoading, showToast, closeAlert } from '@/utils/swal';
+import { showError, showWarning, showLoading, showToast, closeAlert } from '@/lib/swal';
 import { useAuthStore } from '@/store/auth';
-import Button from "@/app/components/ui/Button";
+import AuthCard from '@/components/ui/AuthCard';
+import AuthInput from '@/components/ui/AuthInput';
+import Button from '@/components/ui/Button';
 
 export default function LoginPage() {
   const [identifier, setIdentifier] = useState('');
@@ -33,12 +35,16 @@ export default function LoginPage() {
 
     try {
       // Backend handles identifier as either email or phone
-      const response = await axios.post(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/auth/login`, {
+      const response = await api.post('/auth/login', {
         identifier,
         password,
       });
 
       const { user, access_token, refresh_token } = response.data.data;
+
+      if (!access_token || !user) {
+        throw new Error('Data autentikasi tidak valid dari server.');
+      }
 
       // Store in Zustand
       setAuth(user, access_token, refresh_token);
@@ -48,9 +54,10 @@ export default function LoginPage() {
 
       showToast('Anda berhasil masuk.', 'success');
       router.push('/dashboard');
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const err = error as { response?: { data?: { message?: string } } };
       closeAlert();
-      showError(error.response?.data?.message || 'Login gagal. Periksa kembali email dan kata sandi Anda.');
+      showError(err.response?.data?.message || 'Login gagal. Periksa kembali email dan kata sandi Anda.');
     } finally {
       setLoading(false);
     }
@@ -60,60 +67,49 @@ export default function LoginPage() {
     <>
       <Navbar />
       <main className="min-h-screen pt-32 pb-20 px-5 flex items-center justify-center bg-surface">
-        <div className="w-full max-w-md bg-white rounded-3xl p-8 lg:p-12 shadow-[0_32px_64px_-16px_rgba(0,0,0,0.05)] shadow-sm animate-fade-lift">
-          <div className="text-center mb-10">
-            <h1 className="font-display text-3xl font-extrabold text-dark mb-2">MASUK</h1>
-            <p className="text-muted font-body">Akses dashboard kesehatan Pasien Anda sekarang.</p>
-          </div>
-
+        <AuthCard
+          title="MASUK"
+          subtitle="Akses dashboard kesehatan Pasien Anda sekarang."
+          footer={
+            <p className="text-muted font-body">
+              Belum punya akun?{' '}
+              <Link href="/register" className="font-bold underline hover-text-primary transition-colors hover:text-primary-dark">
+                Daftar
+              </Link>
+            </p>    
+          }
+        >
           <form onSubmit={handleLogin} className="space-y-6">
-            <div>
-              <label className="block text-sm font-semibold text-dark mb-2" htmlFor="identifier">
-                Email atau Nomor Telepon <span className="text-red-500">*</span>
-              </label>
-              <input
-                id="identifier"
-                type="text"
-                className="w-full px-5 py-4 bg-surface shadow-sm rounded-2xl focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-body"
-                placeholder="nama@email.com"
-                value={identifier}
-                onChange={(e) => setIdentifier(e.target.value)}
-              />
-            </div>
+            <AuthInput
+              id="identifier"
+              label="Email atau Nomor Telepon"
+              type="text"
+              placeholder="nama@email.com"
+              value={identifier}
+              onChange={(e) => setIdentifier(e.target.value)}
+              autoComplete="username"
+            />
 
-            <div>
-              <label className="block text-sm font-semibold text-dark mb-2" htmlFor="password">
-                Kata Sandi <span className="text-red-500">*</span>
-              </label>
-              <input
-                id="password"
-                type="password"
-                className="w-full px-5 py-4 bg-surface shadow-sm rounded-2xl focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-body"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-            </div>
+            <AuthInput
+              id="password"
+              label="Kata Sandi"
+              type="password"
+              placeholder="••••••••"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              autoComplete="current-password"
+            />
 
             <Button
               type="submit"
               className="w-full"
               icon={<LogIn size={18} />}
-              disabled={loading}
+              loading={loading}
             >
-              {loading ? 'Tunggu...' : 'Masuk'}
+              Masuk
             </Button>
           </form>
-
-          <div className="mt-10 text-center">
-            <p className="text-muted font-body">
-              Belum punya akun?{' '}
-              <Link href="/register" className="text-primary font-bold hover:underline">
-                Daftar
-              </Link>
-            </p>
-          </div>
-        </div>
+        </AuthCard>
       </main>
       <Footer />
     </>

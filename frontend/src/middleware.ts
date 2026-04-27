@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { updateSession } from './utils/supabase/middleware';
+import { updateSession } from './lib/supabase/middleware';
 
 // Routes that require authentication
 const protectedRoutes = ['/dashboard'];
@@ -9,32 +9,28 @@ const protectedRoutes = ['/dashboard'];
 const authRoutes = ['/login', '/register'];
 
 export async function middleware(request: NextRequest) {
-  // Update the session
   await updateSession(request);
 
   const token = request.cookies.get('jivara-token')?.value;
+  const hasValidToken = token && token !== 'undefined' && token !== 'null' && token.length > 0;
   const { pathname } = request.nextUrl;
 
-  // Check if the route is protected
   const isProtectedRoute = protectedRoutes.some(route => pathname.startsWith(route));
   const isAuthRoute = authRoutes.some(route => pathname.startsWith(route));
 
-  if (isProtectedRoute && !token) {
-    // Redirect to login if trying to access a protected route without a token
+  if (isProtectedRoute && !hasValidToken) {
     const url = new URL('/login', request.url);
     url.searchParams.set('callbackUrl', pathname);
     return NextResponse.redirect(url);
   }
 
-  if (isAuthRoute && token) {
-    // Redirect to dashboard if trying to access login/register while already logged in
+  if (isAuthRoute && hasValidToken) {
     return NextResponse.redirect(new URL('/dashboard', request.url));
   }
 
   return NextResponse.next();
 }
 
-// See "Matching Paths" below to learn more
 export const config = {
   matcher: [
     /*

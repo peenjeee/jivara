@@ -4,17 +4,20 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { UserPlus } from 'lucide-react';
-import Navbar from "@/app/components/landing/Navbar";
-import Footer from "@/app/components/landing/Footer";
-import axios from 'axios';
-import { showError, showWarning, showLoading, showToast, closeAlert } from '@/utils/swal';
-import Button from "@/app/components/ui/Button";
+import Navbar from "@/components/landing/Navbar";
+import Footer from "@/components/landing/Footer";
+import api from '@/lib/axios';
+import { showError, showWarning, showLoading, showToast, closeAlert } from '@/lib/swal';
+import AuthCard from '@/components/ui/AuthCard';
+import AuthInput from '@/components/ui/AuthInput';
+import Button from '@/components/ui/Button';
 
 export default function RegisterPage() {
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
@@ -24,7 +27,7 @@ export default function RegisterPage() {
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-    if (!fullName || !email || !password || !phone) {
+    if (!fullName || !email || !password || !phone || !confirmPassword) {
       setLoading(false);
       showWarning('Harap isi semua kolom yang tersedia.');
       return;
@@ -36,22 +39,29 @@ export default function RegisterPage() {
       return;
     }
 
+    if (password !== confirmPassword) {
+      setLoading(false);
+      showWarning('Kata sandi dan konfirmasi kata sandi tidak cocok.', 'Password Tidak Cocok!');
+      return;
+    }
+
     showLoading('Mohon Tunggu', 'Sedang mendaftarkan akun Anda...');
 
     try {
-      await axios.post(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/auth/register`, {
+      await api.post('/auth/register', {
         fullName,
         email,
         phone,
         password,
-        role: 'patient',
+        role: 'nurse', // Default role for registration
       });
 
       showToast('Akun Anda telah terdaftar. Silakan masuk.', 'success');
       router.push('/login');
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const err = error as { response?: { data?: { message?: string } } };
       closeAlert();
-      showError(error.response?.data?.message || 'Terjadi kesalahan saat mendaftar.');
+      showError(err.response?.data?.message || 'Terjadi kesalahan saat mendaftar.');
     } finally {
       setLoading(false);
     }
@@ -61,88 +71,79 @@ export default function RegisterPage() {
     <>
       <Navbar />
       <main className="min-h-screen pt-32 pb-20 px-5 flex items-center justify-center bg-surface">
-        <div className="w-full max-w-md bg-white rounded-3xl p-8 lg:p-12 shadow-[0_32px_64px_-16px_rgba(0,0,0,0.05)] shadow-sm animate-fade-lift">
-          <div className="text-center mb-10">
-            <h1 className="font-display text-3xl font-extrabold text-dark mb-2">DAFTAR</h1>
-            <p className="text-muted font-body">Mulai monitoring kesehatan Pasien Anda bersama Jivara.</p>
-          </div>
-
+        <AuthCard
+          title="DAFTAR"
+          subtitle="Mulai monitoring kesehatan Pasien Anda bersama Jivara."
+          footer={
+            <p className="text-muted font-body">
+              Sudah punya akun?{' '}
+              <Link href="/login" className="font-bold underline hover-text-primary transition-colors hover:text-primary-dark">
+                Masuk
+              </Link>
+            </p>
+          }
+        >
           <form onSubmit={handleRegister} className="space-y-6">
-            <div>
-              <label className="block text-sm font-semibold text-dark mb-2" htmlFor="fullName">
-                Nama Lengkap <span className="text-red-500">*</span>
-              </label>
-              <input
-                id="fullName"
-                type="text"
-                className="w-full px-5 py-4 bg-surface shadow-sm rounded-2xl focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-body"
-                placeholder="Nama Lengkap"
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-              />
-            </div>
+            <AuthInput
+              id="fullName"
+              label="Nama Lengkap"
+              type="text"
+              placeholder="Nama Lengkap"
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              autoComplete="name"
+            />
 
-            <div>
-              <label className="block text-sm font-semibold text-dark mb-2" htmlFor="email">
-                Email <span className="text-red-500">*</span>
-              </label>
-              <input
-                id="email"
-                type="text"
-                className="w-full px-5 py-4 bg-surface shadow-sm rounded-2xl focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-body"
-                placeholder="nama@email.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
-            </div>
+            <AuthInput
+              id="email"
+              label="Email"
+              type="text"
+              placeholder="nama@email.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              autoComplete="email"
+            />
 
-            <div>
-              <label className="block text-sm font-semibold text-dark mb-2" htmlFor="phone">
-                Nomor Telepon <span className="text-red-500">*</span>
-              </label>
-              <input
-                id="phone"
-                type="text"
-                className="w-full px-5 py-4 bg-surface shadow-sm rounded-2xl focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-body"
-                placeholder="+628..."
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-              />
-            </div>
+            <AuthInput
+              id="phone"
+              label="Nomor Telepon"
+              type="text"
+              placeholder="+628..."
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              autoComplete="tel"
+            />
 
-            <div>
-              <label className="block text-sm font-semibold text-dark mb-2" htmlFor="password">
-                Kata Sandi <span className="text-red-500">*</span>
-              </label>
-              <input
-                id="password"
-                type="password"
-                className="w-full px-5 py-4 bg-surface shadow-sm rounded-2xl focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-body"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-            </div>
+            <AuthInput
+              id="password"
+              label="Kata Sandi"
+              type="password"
+              placeholder="••••••••"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              autoComplete="new-password"
+            />
+
+            <AuthInput
+              id="confirmPassword"
+              label="Konfirmasi Kata Sandi"
+              type="password"
+              placeholder="••••••••"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              autoComplete="new-password"
+            />
 
             <Button
               type="submit"
               className="w-full"
               icon={<UserPlus size={18} />}
-              disabled={loading}
+              loading={loading}
             >
-              {loading ? 'Tunggu...' : 'Daftar'}
+              Daftar
             </Button>
           </form>
-
-          <div className="mt-10 text-center">
-            <p className="text-muted font-body">
-              Sudah punya akun?{' '}
-              <Link href="/login" className="text-primary font-bold hover:underline">
-                Masuk
-              </Link>
-            </p>
-          </div>
-        </div>
+        </AuthCard>
       </main>
       <Footer />
     </>

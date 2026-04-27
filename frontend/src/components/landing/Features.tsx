@@ -1,0 +1,61 @@
+"use client";
+
+import Section from "@/components/ui/Section";
+import Image from "next/image";
+import { motion } from "motion/react";
+
+export default function Features() {
+  return (
+    <Section id="fitur" className="group relative z-10 min-h-[auto] md:min-h-[840px] grid place-items-center overflow-hidden bg-primary text-white text-center" aria-labelledby="about-title">
+      <div className="flex flex-col items-center">
+        <motion.div
+          initial={{ scale: 0.3, opacity: 0, rotate: -15 }}
+          whileInView={{ scale: 1, opacity: 1, rotate: 0 }}
+          viewport={{ once: true, amount: 0.4 }}
+          transition={{
+            type: "spring",
+            stiffness: 200,
+            damping: 20,
+            delay: 0.1,
+          }}
+          className="rounded-full"
+        >
+          <Image
+            className="w-[148px] h-[148px] rounded-full object-cover mb-[46px]"
+            src="/images/logo/logo.png"
+            alt="Jiva Avatar"
+            width={148}
+            height={148}
+            style={{ objectFit: 'contain', background: 'var(--bg)' }}
+          />
+        </motion.div>
+        <p className="block absolute left-0 right-0 top-[180px] md:top-[304px] text-white/[0.08] font-display text-[clamp(32px,10vw,178px)] font-extrabold leading-none text-center whitespace-nowrap" aria-hidden="true">JIVARA</p>
+        <div className="relative z-[2] w-[min(850px,calc(100%-48px))]">
+          <motion.div
+            initial={{ opacity: 0, y: 40 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, amount: 0.3 }}
+            transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1], delay: 0.25 }}
+          >
+            <motion.h2
+              className="mx-auto mt-2 mb-[52px] max-w-[820px] font-display text-[28px] md:text-[45px] font-extrabold leading-[1.3] md:leading-[1.12] cursor-default"
+              whileHover={{ scale: 1.02, y: -5 }}
+              transition={{ type: "spring", stiffness: 400, damping: 25 }}
+            >
+              Mencegah interaksi obat dan makanan dengan <span className="text-dark">cerdas</span> dan <i className="font-[Georgia,serif] italic font-medium">mudah</i> digunakan.
+            </motion.h2>
+          </motion.div>
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, amount: 0.3 }}
+            transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1], delay: 0.4 }}
+          >
+            
+              Jivara menghubungkan pasien dan perawat dalam satu ekosistem. Dengan pengingat jadwal obat otomatis, deteksi makanan berbasis AI lewat kamera, dan sistem monitoring, kami memastikan setiap dosis aman dikonsumsi.
+          </motion.div>
+        </div>
+      </div>
+    </Section>
+  );
+}

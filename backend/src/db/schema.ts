@@ -5,7 +5,7 @@ import {
   varchar,
   timestamp,
   boolean,
-  date,
+  integer,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 
@@ -18,8 +18,8 @@ export const users = pgTable("users", {
   phone: varchar("phone", { length: 20 }).unique(),
   email: varchar("email", { length: 256 }).notNull().unique(),
   password: text("password").notNull(),
-  role: varchar("role", { length: 50 }).notNull().default("patient"),
-  dateOfBirth: date("date_of_birth"),
+  role: varchar("role", { length: 50 }).notNull().default("nurse"),
+  age: integer("age").notNull().default(0),
   gender: varchar("gender", { length: 10 }),
   address: text("address"),
   isActive: boolean("is_active").default(true),
