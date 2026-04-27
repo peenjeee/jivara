@@ -1,6 +1,11 @@
 import { Router } from "express";
 import * as authController from "../controllers/auth.controller";
-import { authenticateToken, authorizeRoles } from "../middleware/auth.middleware";
+import { authenticateToken } from "../middleware/auth.middleware";
+import {
+  validateRegister,
+  validateLogin,
+  validateRefreshToken,
+} from "../validators/auth.validator";
 
 const router = Router();
 
@@ -54,7 +59,7 @@ const router = Router();
  *       409:
  *         description: User already exists
  */
-router.post("/register", authController.register);
+router.post("/register", validateRegister, authController.register);
 
 /**
  * @swagger
@@ -80,7 +85,7 @@ router.post("/register", authController.register);
  *       400:
  *         description: Invalid credentials
  */
-router.post("/login", authController.login);
+router.post("/login", validateLogin, authController.login);
 
 /**
  * @swagger
@@ -105,7 +110,7 @@ router.post("/login", authController.login);
  *       401:
  *         description: Invalid or expired refresh token
  */
-router.post("/refresh", authController.refresh);
+router.post("/refresh", validateRefreshToken, authController.refresh);
 
 /**
  * @swagger
@@ -128,37 +133,7 @@ router.post("/refresh", authController.refresh);
  *       200:
  *         description: Logged out successfully
  */
-router.post("/logout", authController.logout);
-
-/**
- * @swagger
- * /auth/change-password:
- *   put:
- *     summary: Change password
- *     tags: [Auth]
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - current_password
- *               - new_password
- *             properties:
- *               current_password:
- *                 type: string
- *               new_password:
- *                 type: string
- *     responses:
- *       200:
- *         description: Password changed successfully
- *       401:
- *         description: Unauthorized
- */
-router.put("/change-password", authenticateToken, authController.changePassword);
+router.post("/logout", validateRefreshToken, authController.logout);
 
 /**
  * @swagger
@@ -175,52 +150,5 @@ router.put("/change-password", authenticateToken, authController.changePassword)
  *         description: Unauthorized
  */
 router.get("/me", authenticateToken, authController.getMe);
-
-/**
- * @swagger
- * /auth/create-patient:
- *   post:
- *     summary: Create a new patient account (Nurse only)
- *     tags: [Auth]
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - fullName
- *               - email
- *               - password
- *             properties:
- *               fullName:
- *                 type: string
- *               email:
- *                 type: string
- *               password:
- *                 type: string
- *               phone:
- *                 type: string
- *               dateOfBirth:
- *                 type: string
- *                 format: date
- *               gender:
- *                 type: string
- *               address:
- *                 type: string
- *     responses:
- *       201:
- *         description: Patient account created successfully
- *       403:
- *         description: Forbidden (Nurse only)
- */
-router.post(
-  "/create-patient",
-  authenticateToken,
-  authorizeRoles("nurse"),
-  authController.createPatient
-);
 
 export default router;

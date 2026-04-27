@@ -1,14 +1,14 @@
 "use client";
 
 import { useEffect } from "react";
-import Navbar from "@/app/components/landing/Navbar";
-import Hero from "@/app/components/landing/Hero";
-// import Marquee from "@/app/components/landing/Marquee";
-import Features from "@/app/components/landing/Features";
-import Workflow from "@/app/components/landing/Workflow";
-import SecurityLevels from "@/app/components/landing/SecurityLevels";
-import Footer from "@/app/components/landing/Footer";
-import { initScrollAnimations } from "@/utils/animations";
+import Navbar from "@/components/landing/Navbar";
+import Hero from "@/components/landing/Hero";
+// import Marquee from "@/components/landing/Marquee";
+import Features from "@/components/landing/Features";
+import Workflow from "@/components/landing/Workflow";
+import SecurityLevels from "@/components/landing/SecurityLevels";
+import Footer from "@/components/landing/Footer";
+import { initScrollAnimations } from "@/lib/animations";
 
 export default function HomePage() {
   useEffect(() => {
@@ -17,10 +17,10 @@ export default function HomePage() {
   }, []);
 
   return (
-    <>
+    <div className="relative">
       <Navbar />
 
-      <main id="top">
+      <main id="top" className="relative">
         <Hero />
         {/* <Marquee /> */}
         <Features />
@@ -29,6 +29,6 @@ export default function HomePage() {
       </main>
 
       <Footer />
-    </>
+    </div>
   );
 }

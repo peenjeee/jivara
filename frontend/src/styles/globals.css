@@ -43,10 +43,6 @@
   box-sizing: border-box;
 }
 
-html {
-  scroll-behavior: smooth;
-}
-
 body {
   margin: 0;
   min-height: 100vh;
@@ -165,7 +161,6 @@ ul {
   border-radius: 9999px !important;
 }
 
-/* Custom SweetAlert2 Container Overrides */
 .swal2-container {
   z-index: 99999 !important;
 }
@@ -181,4 +176,34 @@ ul {
     scroll-behavior: auto !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/* Custom Utilities */
+.hover-text-primary {
+  color: var(--muted);
+}
+.hover-text-primary:hover {
+  color: var(--primary) !important;
+}
+
+/* Lenis Smooth Scroll */
+html.lenis,
+html.lenis body {
+  height: auto;
+}
+
+.lenis.lenis-smooth {
+  scroll-behavior: auto !important;
+}
+
+.lenis.lenis-smooth [data-lenis-prevent] {
+  overscroll-behavior: contain;
+}
+
+.lenis.lenis-stopped {
+  overflow: hidden;
+}
+
+.lenis.lenis-scrolling iframe {
+  pointer-events: none;
 }

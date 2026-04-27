@@ -1,0 +1,23 @@
+export interface User {
+  id: string;
+  fullName: string;
+  email: string;
+  phone?: string | null;
+  role: string;
+  age: number;
+  gender?: string | null;
+  address?: string | null;
+}
+
+/**
+ * Auth state shape for Zustand store.
+ */
+export interface AuthState {
+  user: User | null;
+  token: string | null;
+  refreshToken: string | null;
+  isAuthenticated: boolean;
+  setAuth: (user: User, token: string, refreshToken: string) => void;
+  updateToken: (token: string) => void;
+  logout: () => void;
+}
