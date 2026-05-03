@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { motion } from 'motion/react';
-import { useAuthStore } from '@/store/auth';
+// import { useAuthStore } from '@/store/auth';
 import { DashboardLayout } from '@/components/dashboard';
 import DashboardPageHeader from '@/components/dashboard/DashboardPageHeader';
 import DashboardPageShell from '@/components/dashboard/DashboardPageShell';
@@ -12,9 +12,9 @@ import { dashboardStats, recentPatients } from '@/lib/mocks/dashboard';
 
 export default function DashboardPage() {
   const router = useRouter();
-  const { user } = useAuthStore();
-
-  if (!user) return null;
+  // Restore guard saat auth wajib lagi:
+  // const { user } = useAuthStore();
+  // if (!user) return null;
 
   return (
     <DashboardLayout>

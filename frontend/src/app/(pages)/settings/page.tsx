@@ -10,12 +10,12 @@ import {
   SecuritySettingsForm,
   SettingsCard,
 } from "@/components/settings";
-import { useAuthStore } from "@/store/auth";
+// import { useAuthStore } from "@/store/auth";
 
 export default function SettingsPage() {
-  const user = useAuthStore((state) => state.user);
-
-  if (!user) return null;
+  // Restore guard saat auth wajib lagi:
+  // const user = useAuthStore((state) => state.user);
+  // if (!user) return null;
 
   return (
     <DashboardLayout>

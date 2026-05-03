@@ -7,16 +7,22 @@ import Button from "@/components/ui/Button";
 import { showToast, showWarning } from "@/lib/swal";
 import { useAuthStore } from "@/store/auth";
 
+const previewUser = {
+  fullName: "Nurse Jivara",
+  email: "nurse@jivara.id",
+  phone: "+62 812 3456 7890",
+};
+
 export default function ProfileSettingsForm() {
   const { user, token, refreshToken, setAuth } = useAuthStore();
-  const [fullName, setFullName] = useState(user?.fullName ?? "");
-  const [email, setEmail] = useState(user?.email ?? "");
-  const [phone, setPhone] = useState(user?.phone ?? "");
+  const [fullName, setFullName] = useState(user?.fullName ?? previewUser.fullName);
+  const [email, setEmail] = useState(user?.email ?? previewUser.email);
+  const [phone, setPhone] = useState(user?.phone ?? previewUser.phone);
 
   const handleSubmit = (event: FormEvent) => {
     event.preventDefault();
 
-    if (!user) return;
+    //  if (!user) return;
 
     const trimmedName = fullName.trim();
     const trimmedEmail = email.trim();
@@ -27,7 +33,7 @@ export default function ProfileSettingsForm() {
       return;
     }
 
-    if (token && refreshToken) {
+    if (user && token && refreshToken) {
       setAuth({ ...user, fullName: trimmedName, email: trimmedEmail, phone: trimmedPhone }, token, refreshToken);
     }
 
