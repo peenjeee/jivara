@@ -8,11 +8,15 @@ import type { SummaryCardItem } from "@/components/ui/SummaryCard";
 import { patients } from "@/lib/mocks/patients";
 import { medicationSchedules } from "@/lib/mocks/schedules";
 import { usePatientDashboardStore } from "@/store/patientDashboard";
+import { useSplashScreen } from "@/components/ui/AppSplashScreen";
 import PatientAdherenceHeatmap from "./PatientAdherenceHeatmap";
 
 const mockPatient = patients[0];
 
 export default function PatientDashboardPage() {
+  const { isSplashFinished } = useSplashScreen();
+
+  if (!isSplashFinished) return null;
   const greeting = getGreeting();
   const patientSchedules = medicationSchedules.filter((schedule) => schedule.patientId === mockPatient.id);
   const activeSchedules = patientSchedules.filter((schedule) => schedule.status === "Aktif");
