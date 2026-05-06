@@ -14,7 +14,7 @@ function createContentSecurityPolicy(nonce: string) {
     `script-src-elem 'self' 'nonce-${nonce}'${isDev ? " 'unsafe-eval'" : ''}`,
     `style-src 'self' 'nonce-${nonce}'`,
     `style-src-elem 'self' 'nonce-${nonce}'`,
-    "style-src-attr 'none'",
+    "style-src-attr 'self' 'unsafe-inline'",
     "img-src 'self' data: blob: https://images.unsplash.com",
     "font-src 'self' data:",
     "connect-src 'self' https://*.supabase.co https://*.supabase.in https://api.jivara.web.id https://jivara-production.up.railway.app http://localhost:3001 ws://localhost:3000 ws://127.0.0.1:3000",
