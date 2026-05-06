@@ -10,6 +10,7 @@ import {
   jsonb,
   real,
   index,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 
@@ -245,7 +246,32 @@ export const notifications = pgTable("notifications", {
 }));
 
 // ─────────────────────────────────────────────
-// 13. PUSH SUBSCRIPTIONS
+// 13. MEDICATION REMINDER JOBS
+// ─────────────────────────────────────────────
+export const medicationReminderJobs = pgTable("medication_reminder_jobs", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  scheduleId: uuid("schedule_id")
+    .notNull()
+    .references(() => medicationSchedules.id, { onDelete: "cascade" }),
+  patientId: uuid("patient_id")
+    .notNull()
+    .references(() => patients.id, { onDelete: "cascade" }),
+  notificationId: uuid("notification_id").references(() => notifications.id, { onDelete: "set null" }),
+  scheduledTime: timestamp("scheduled_time").notNull(),
+  status: varchar("status", { length: 20 }).notNull().default("pending"),
+  attempts: integer("attempts").notNull().default(0),
+  lastError: text("last_error"),
+  sentAt: timestamp("sent_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  uniqueScheduleTime: uniqueIndex("uq_med_reminder_schedule_time").on(table.scheduleId, table.scheduledTime),
+  patientIdx: index("idx_med_reminder_jobs_patient").on(table.patientId),
+  dueIdx: index("idx_med_reminder_jobs_due").on(table.status, table.scheduledTime),
+}));
+
+// ─────────────────────────────────────────────
+// 14. PUSH SUBSCRIPTIONS
 // ─────────────────────────────────────────────
 export const pushSubscriptions = pgTable("push_subscriptions", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -268,7 +294,7 @@ export const pushSubscriptions = pgTable("push_subscriptions", {
 }));
 
 // ─────────────────────────────────────────────
-// 14. AUDIT LOGS
+// 15. AUDIT LOGS
 // ─────────────────────────────────────────────
 export const auditLogs = pgTable("audit_logs", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -312,6 +338,7 @@ export const patientsRelations = relations(patients, ({ one, many }) => ({
   prescriptions: many(prescriptions),
   medicationSchedules: many(medicationSchedules),
   medicationLogs: many(medicationLogs),
+  medicationReminderJobs: many(medicationReminderJobs),
   foodScans: many(foodScans),
   notifications: many(notifications),
   pushSubscriptions: many(pushSubscriptions),
@@ -358,6 +385,7 @@ export const medicationSchedulesRelations = relations(medicationSchedules, ({ on
     references: [prescriptions.id],
   }),
   logs: many(medicationLogs),
+  reminderJobs: many(medicationReminderJobs),
 }));
 
 export const medicationLogsRelations = relations(medicationLogs, ({ one }) => ({
@@ -398,6 +426,21 @@ export const notificationsRelations = relations(notifications, ({ one }) => ({
   patient: one(patients, {
     fields: [notifications.patientId],
     references: [patients.id],
+  }),
+}));
+
+export const medicationReminderJobsRelations = relations(medicationReminderJobs, ({ one }) => ({
+  schedule: one(medicationSchedules, {
+    fields: [medicationReminderJobs.scheduleId],
+    references: [medicationSchedules.id],
+  }),
+  patient: one(patients, {
+    fields: [medicationReminderJobs.patientId],
+    references: [patients.id],
+  }),
+  notification: one(notifications, {
+    fields: [medicationReminderJobs.notificationId],
+    references: [notifications.id],
   }),
 }));
 

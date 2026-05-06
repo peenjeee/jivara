@@ -15,6 +15,7 @@ import adherenceRoutes from './routes/adherence.routes';
 import foodAiRoutes from './routes/food-ai.routes';
 import prescriptionRoutes from './routes/prescription.routes';
 import notificationRoutes from './routes/notification.routes';
+import { startMedicationReminderScheduler } from './services/medication-reminder-scheduler.service';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -154,5 +155,6 @@ app.use((err: { status?: number; message?: string }, req: Request, res: Response
 });
 
 app.listen(PORT, () => {
+  startMedicationReminderScheduler();
   // console.log(`[server]: Server berjalan di http://localhost:${PORT}`);
 });
