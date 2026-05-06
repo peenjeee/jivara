@@ -68,7 +68,10 @@ api.interceptors.response.use(
       if (!refreshToken) {
         logout();
         Cookies.remove('jivara-token');
-        if (typeof window !== 'undefined') window.location.href = '/login';
+        if (typeof window !== 'undefined') {
+          window.localStorage.removeItem('jivara-auth-storage');
+          window.location.href = '/login';
+        }
         return Promise.reject(error);
       }
 
@@ -94,7 +97,10 @@ api.interceptors.response.use(
         processQueue(refreshError, null);
         logout();
         Cookies.remove('jivara-token');
-        if (typeof window !== 'undefined') window.location.href = '/login';
+        if (typeof window !== 'undefined') {
+          window.localStorage.removeItem('jivara-auth-storage');
+          window.location.href = '/login';
+        }
         return Promise.reject(refreshError);
       } finally {
         isRefreshing = false;
