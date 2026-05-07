@@ -59,14 +59,9 @@ const loginLimiter = rateLimit({
  *                 type: string
  *               phone:
  *                 type: string
- *               role:
- *                 type: string
- *                 enum: [patient, nurse, admin]
- *               dateOfBirth:
- *                 type: string
- *                 format: date
  *               gender:
  *                 type: string
+ *                 enum: [male, female]
  *               address:
  *                 type: string
  *     responses:
@@ -74,6 +69,10 @@ const loginLimiter = rateLimit({
  *         description: Pengguna berhasil terdaftar
  *       400:
  *         description: Permintaan tidak valid
+ *       401:
+ *         description: Token akses diperlukan
+ *       403:
+ *         description: Hanya admin yang dapat mendaftarkan pengguna
  *       409:
  *         description: Pengguna sudah terdaftar
  */
@@ -113,6 +112,34 @@ router.post(
  */
 router.post("/login", loginLimiter, validateLoginIdentifier, validateLogin, authController.login);
 
+/**
+ * @swagger
+ * /api/auth/complete-password-change:
+ *   post:
+ *     summary: Selesaikan penggantian kata sandi wajib
+ *     tags: [Auth]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - newPassword
+ *             properties:
+ *               newPassword:
+ *                 type: string
+ *                 minLength: 8
+ *     responses:
+ *       200:
+ *         description: Kata sandi berhasil diperbarui
+ *       400:
+ *         description: Kata sandi tidak valid atau perubahan tidak diperlukan
+ *       401:
+ *         description: Tidak terautentikasi
+ */
 router.post(
   "/complete-password-change",
   authenticateToken,
@@ -120,6 +147,35 @@ router.post(
   authController.completePasswordChange
 );
 
+/**
+ * @swagger
+ * /api/auth/change-password:
+ *   put:
+ *     summary: Ganti kata sandi akun saat ini
+ *     description: Alias standar untuk flow penggantian kata sandi wajib.
+ *     tags: [Auth]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - newPassword
+ *             properties:
+ *               newPassword:
+ *                 type: string
+ *                 minLength: 8
+ *     responses:
+ *       200:
+ *         description: Kata sandi berhasil diperbarui
+ *       400:
+ *         description: Kata sandi tidak valid atau perubahan tidak diperlukan
+ *       401:
+ *         description: Tidak terautentikasi
+ */
 router.put(
   "/change-password",
   authenticateToken,
