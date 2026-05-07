@@ -13,6 +13,27 @@ router.use(authenticateToken);
  *   description: Statistik kepatuhan minum obat
  */
 
+/**
+ * @swagger
+ * /api/adherence/aggregate:
+ *   get:
+ *     summary: Ambil statistik aggregate adherence untuk admin
+ *     tags: [Adherence]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: period
+ *         schema:
+ *           type: string
+ *           enum: [7d, 30d, 90d]
+ *           default: 30d
+ *     responses:
+ *       200:
+ *         description: Statistik aggregate berhasil diambil
+ *       403:
+ *         description: Hanya admin yang dapat melihat statistik aggregate
+ */
 router.get("/aggregate", authorizeRoles("admin"), adherenceController.getAggregateAdherence);
 
 /**
