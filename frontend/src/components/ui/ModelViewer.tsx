@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 
 interface ModelViewerProps {
@@ -19,6 +20,11 @@ interface ModelViewerProps {
   environmentImage?: string;
   style?: React.CSSProperties;
 }
+
+type IdleWindow = Window & {
+  requestIdleCallback?: (callback: IdleRequestCallback, options?: IdleRequestOptions) => number;
+  cancelIdleCallback?: (handle: number) => void;
+};
 
 export default function ModelViewer({
   src,
@@ -40,6 +46,7 @@ export default function ModelViewer({
   const containerRef = useRef<HTMLDivElement>(null);
   const modelRef = useRef<HTMLElement | null>(null);
   const [ready, setReady] = useState(false);
+  const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState(false);
 
   // Suppress Three.js texture blob rejection noise (non-fatal)
@@ -55,20 +62,38 @@ export default function ModelViewer({
 
   useEffect(() => {
     let cancelled = false;
+    let fallbackTimer: ReturnType<typeof setTimeout> | null = null;
+    const idleWindow = window as IdleWindow;
 
-    import("@google/model-viewer")
-      .then(() => {
-        if (!cancelled) setReady(true);
-      })
-      .catch(() => {
-        if (!cancelled) setError(true);
-      });
+    const loadModelViewer = () => {
+      import("@google/model-viewer")
+        .then(() => {
+          if (!cancelled) setReady(true);
+        })
+        .catch(() => {
+          if (!cancelled) setError(true);
+        });
+    };
 
-    return () => { cancelled = true; };
+    if (idleWindow.requestIdleCallback && idleWindow.cancelIdleCallback) {
+      const idleId = idleWindow.requestIdleCallback(loadModelViewer, { timeout: 1800 });
+      return () => {
+        cancelled = true;
+        idleWindow.cancelIdleCallback?.(idleId);
+      };
+    }
+
+    fallbackTimer = setTimeout(loadModelViewer, 450);
+    return () => {
+      cancelled = true;
+      if (fallbackTimer) clearTimeout(fallbackTimer);
+    };
   }, []);
 
   useEffect(() => {
     if (!ready || !containerRef.current) return;
+
+    setLoaded(false);
 
     if (modelRef.current) {
       modelRef.current.remove();
@@ -124,6 +149,7 @@ export default function ModelViewer({
     mv.style.transition = "opacity 0.4s ease";
     mv.addEventListener("load", () => {
       mv.style.opacity = "1";
+      setLoaded(true);
     });
 
     containerRef.current.appendChild(mv);
@@ -139,5 +165,19 @@ export default function ModelViewer({
 
   if (error) return null;
 
-  return <div ref={containerRef} className={className} style={style} />;
+  return (
+    <div ref={containerRef} className={`relative overflow-hidden ${className}`} style={style}>
+      {poster && (
+        <Image
+          src={poster}
+          alt=""
+          aria-hidden="true"
+          fill
+          sizes="(min-width: 1024px) 460px, 70vw"
+          className={`pointer-events-none object-contain transition-opacity duration-500 ${loaded ? "opacity-0" : "opacity-100"}`}
+          priority
+        />
+      )}
+    </div>
+  );
 }

@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
-import { motion, useScroll, useTransform } from "motion/react";
+import { motion, useReducedMotion, useScroll, useTransform } from "motion/react";
 import { TypeAnimation } from 'react-type-animation';
 import { Download } from "lucide-react";
 import Button from "@/components/ui/Button";
@@ -19,6 +19,7 @@ export default function Hero() {
   const [isInstalled, setIsInstalled] = useState(false);
   const [canPromptInstall, setCanPromptInstall] = useState(false);
   const mascotRef = useRef<HTMLDivElement>(null);
+  const shouldReduceMotion = useReducedMotion();
 
   useEffect(() => {
     const mediaQuery = window.matchMedia("(display-mode: standalone)");
@@ -108,9 +109,21 @@ export default function Hero() {
 
   // Mouse-follow orbit: character rotates to face cursor direction.
   const orbitState = useRef({ theta: 20, phi: 75, targetTheta: 20, targetPhi: 75 });
+  const viewportCenterRef = useRef({ x: 0, y: 0 });
+  const latestPointerRef = useRef<{ x: number; y: number } | null>(null);
+  const pointerFrameRef = useRef<number>(0);
 
   useEffect(() => {
+    const coarsePointerQuery = window.matchMedia("(pointer: coarse)");
+    if (shouldReduceMotion || coarsePointerQuery.matches) return;
+
     let animId: number;
+    let modelElement: Element | null = null;
+    let lastCameraOrbit = "";
+
+    const updateViewportCenter = () => {
+      viewportCenterRef.current = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+    };
 
     const lerpOrbit = () => {
       const s = orbitState.current;
@@ -118,28 +131,47 @@ export default function Hero() {
       s.theta += (s.targetTheta - s.theta) * lerpFactor;
       s.phi += (s.targetPhi - s.phi) * lerpFactor;
 
-      const mv = mascotRef.current?.querySelector("model-viewer");
-      if (mv) {
-        mv.setAttribute("camera-orbit", `${s.theta.toFixed(2)}deg ${s.phi.toFixed(2)}deg 105%`);
+      modelElement ??= mascotRef.current?.querySelector("model-viewer") ?? null;
+      if (modelElement) {
+        const nextCameraOrbit = `${s.theta.toFixed(2)}deg ${s.phi.toFixed(2)}deg 105%`;
+        if (nextCameraOrbit !== lastCameraOrbit) {
+          modelElement.setAttribute("camera-orbit", nextCameraOrbit);
+          lastCameraOrbit = nextCameraOrbit;
+        }
       }
       animId = requestAnimationFrame(lerpOrbit);
     };
 
+    const updateTargetOrbit = () => {
+      pointerFrameRef.current = 0;
+      const latestPointer = latestPointerRef.current;
+      if (!latestPointer) return;
+
+      const { x: centerX, y: centerY } = viewportCenterRef.current;
+      orbitState.current.targetTheta = ((latestPointer.x - centerX) / centerX) * -50;
+      orbitState.current.targetPhi = 75 + ((latestPointer.y - centerY) / centerY) * -25;
+    };
+
+    const handlePointerMove = (event: PointerEvent) => {
+      if (event.pointerType !== "mouse") return;
+
+      latestPointerRef.current = { x: event.clientX, y: event.clientY };
+      if (!pointerFrameRef.current) {
+        pointerFrameRef.current = requestAnimationFrame(updateTargetOrbit);
+      }
+    };
+
+    updateViewportCenter();
     animId = requestAnimationFrame(lerpOrbit);
-
-    const handleMouseMove = (event: MouseEvent) => {
-      const centerX = window.innerWidth / 2;
-      const centerY = window.innerHeight / 2;
-      orbitState.current.targetTheta = ((event.clientX - centerX) / centerX) * -50;
-      orbitState.current.targetPhi = 75 + ((event.clientY - centerY) / centerY) * -25;
-    };
-
-    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("resize", updateViewportCenter, { passive: true });
+    window.addEventListener("pointermove", handlePointerMove, { passive: true });
     return () => {
-      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("resize", updateViewportCenter);
+      window.removeEventListener("pointermove", handlePointerMove);
       cancelAnimationFrame(animId);
+      if (pointerFrameRef.current) cancelAnimationFrame(pointerFrameRef.current);
     };
-  }, []);
+  }, [shouldReduceMotion]);
 
   return (
     <motion.section
@@ -159,6 +191,7 @@ export default function Hero() {
       >
         <ModelViewer
           src="/models/maskot.glb"
+          poster="/images/maskot/maskot.png"
           alt="Jiva - maskot Jivara 3D"
           autoRotate={false}
           cameraControls
