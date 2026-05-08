@@ -1,26 +1,58 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { BellRing, Pill, ShieldCheck } from "lucide-react";
 import DashboardPageHeader from "@/components/dashboard/DashboardPageHeader";
 import DashboardPageShell from "@/components/dashboard/DashboardPageShell";
 import SummaryCardGrid from "@/components/ui/SummaryCardGrid";
 import type { SummaryCardItem } from "@/components/ui/SummaryCard";
-import { patients } from "@/lib/mocks/patients";
-import { medicationSchedules } from "@/lib/mocks/schedules";
+import type { PatientRecord } from "@/lib/mocks/patients";
+import type { MedicationScheduleRecord } from "@/lib/mocks/schedules";
+import { getPatientDashboardData } from "@/lib/patientDashboardApi";
 import { usePatientDashboardStore } from "@/store/patientDashboard";
 import { useSplashScreen } from "@/components/ui/AppSplashScreen";
 import PatientAdherenceHeatmap from "./PatientAdherenceHeatmap";
 
-const mockPatient = patients[0];
+const initialPatient: PatientRecord = {
+  id: "",
+  name: "-",
+  age: 0,
+  gender: "Pria",
+  status: "On Ideal Schedule",
+  lastVisit: "-",
+  adherence: 100,
+  avatar: "PX",
+};
 
 export default function PatientDashboardPage() {
   const lastScan = usePatientDashboardStore((state) => state.lastScan);
   const { isSplashFinished } = useSplashScreen();
+  const [patient, setPatient] = useState<PatientRecord>(initialPatient);
+  const [patientSchedules, setPatientSchedules] = useState<MedicationScheduleRecord[]>([]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    getPatientDashboardData()
+      .then((data) => {
+        if (!isMounted) return;
+        setPatient(data.patient);
+        setPatientSchedules(data.schedules);
+      })
+      .catch(() => {
+        if (!isMounted) return;
+        setPatient(initialPatient);
+        setPatientSchedules([]);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   if (!isSplashFinished) return null;
 
   const greeting = getGreeting();
-  const patientSchedules = medicationSchedules.filter((schedule) => schedule.patientId === mockPatient.id);
   const activeSchedules = patientSchedules.filter((schedule) => schedule.status === "Aktif");
 
   const stats: SummaryCardItem[] = [
@@ -40,22 +72,22 @@ export default function PatientDashboardPage() {
     },
     {
       label: "Kepatuhan Saya",
-      value: `${mockPatient.adherence}%`,
-      helper: mockPatient.status,
-      tone: mockPatient.adherence >= 80 ? "safe" : mockPatient.adherence >= 60 ? "warning" : "critical",
+      value: `${patient.adherence}%`,
+      helper: patient.status,
+      tone: patient.adherence >= 80 ? "safe" : patient.adherence >= 60 ? "warning" : "critical",
       color: "pine",
       icon: ShieldCheck,
-      progress: mockPatient.adherence,
+      progress: patient.adherence,
     }
   ];
 
   return (
     <DashboardPageShell>
-      <DashboardPageHeader title={`${greeting}, ${mockPatient.name}`} />
+      <DashboardPageHeader title={`${greeting}, ${patient.name}`} />
       <SummaryCardGrid stats={stats} />
 
       <div className="mt-6 space-y-6">
-        <PatientAdherenceHeatmap adherence={mockPatient.adherence} />
+        <PatientAdherenceHeatmap adherence={patient.adherence} />
       </div>
     </DashboardPageShell>
   );

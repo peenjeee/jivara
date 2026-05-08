@@ -1,5 +1,5 @@
 import { PatientDetailPage } from "@/components/patients/detail";
-import { getFallbackPatientDetail } from "@/lib/patientApi";
+import { getInitialPatientDetail } from "@/lib/patientApi";
 
 interface PatientDetailRouteProps {
   readonly params: Promise<{
@@ -10,7 +10,7 @@ interface PatientDetailRouteProps {
 export default async function PatientDetailRoute({ params }: PatientDetailRouteProps) {
   const { id } = await params;
   const patientId = decodeURIComponent(id);
-  const data = getFallbackPatientDetail(patientId);
+  const data = getInitialPatientDetail(patientId);
 
   return <PatientDetailPage data={data} patientId={patientId} />;
 }

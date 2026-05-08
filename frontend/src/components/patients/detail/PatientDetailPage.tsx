@@ -31,7 +31,7 @@ export default function PatientDetailPage({ data, patientId }: PatientDetailPage
 
     let isMounted = true;
 
-    getPatientDetailFromApi(patientId, data)
+    getPatientDetailFromApi(patientId)
       .then((nextData) => {
         if (isMounted) setDetailData(nextData);
       })

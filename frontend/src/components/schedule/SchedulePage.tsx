@@ -9,8 +9,9 @@ import Button from "@/components/ui/Button";
 import PatientPagination from "@/components/patients/PatientPagination";
 import SummaryCardGrid from "@/components/ui/SummaryCardGrid";
 import { getNextScheduleOrder, groupSchedulesByPatient } from "@/helpers/schedules";
-import { patients } from "@/lib/mocks/patients";
-import { medicationSchedules as initialSchedules, type MedicationScheduleRecord } from "@/lib/mocks/schedules";
+import { getPatientsFromApi } from "@/lib/patientApi";
+import type { PatientRecord } from "@/lib/mocks/patients";
+import type { MedicationScheduleRecord } from "@/lib/mocks/schedules";
 import { getSchedulesFromApi } from "@/lib/scheduleApi";
 import { showConfirm, showToast } from "@/lib/swal";
 import ScheduleDetailModal from "./ScheduleDetailModal";
@@ -28,7 +29,8 @@ interface SchedulePageProps {
 
 export default function SchedulePage({ initialPatientName = "", readOnly = false }: SchedulePageProps) {
   const linkedPatientName = initialPatientName.trim().toLowerCase();
-  const [schedules, setSchedules] = useState(initialSchedules);
+  const [schedules, setSchedules] = useState<MedicationScheduleRecord[]>([]);
+  const [patients, setPatients] = useState<PatientRecord[]>([]);
   const [search, setSearch] = useState("");
   const [activeFilter, setActiveFilter] = useState<ScheduleFilter>("all");
   const [currentPage, setCurrentPage] = useState(1);
@@ -42,12 +44,18 @@ export default function SchedulePage({ initialPatientName = "", readOnly = false
   useEffect(() => {
     let isMounted = true;
 
-    getSchedulesFromApi()
-      .then((apiSchedules) => {
-        if (isMounted) setSchedules(apiSchedules);
+    Promise.all([getSchedulesFromApi(), getPatientsFromApi()])
+      .then(([apiSchedules, apiPatients]) => {
+        if (isMounted) {
+          setSchedules(apiSchedules);
+          setPatients(apiPatients);
+        }
       })
       .catch(() => {
-        if (isMounted) setSchedules(initialSchedules);
+        if (isMounted) {
+          setSchedules([]);
+          setPatients([]);
+        }
       });
 
     return () => {
@@ -69,12 +77,10 @@ export default function SchedulePage({ initialPatientName = "", readOnly = false
 
   const filteredSchedules = useMemo(() => {
     const query = deferredSearch.trim().toLowerCase();
-    const patientStatusById = Object.fromEntries(patients.map((patient) => [patient.id, patient.status]));
-
     return schedules.filter((schedule) => {
       const matchesSearch = !query || [schedule.patientName, schedule.medicineName, schedule.dose, schedule.frequency, schedule.instructions ?? ""]
         .some((value) => value.toLowerCase().includes(query));
-      const matchesFilter = activeFilter === "all" || patientStatusById[schedule.patientId] === activeFilter;
+      const matchesFilter = activeFilter === "all";
 
       return matchesSearch && matchesFilter;
     });

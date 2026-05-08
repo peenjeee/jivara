@@ -1,5 +1,5 @@
 import api from "@/lib/axios";
-import { activityLogs as fallbackActivityLogs, type ActivityCategory, type ActivityLogRecord, type ActivitySeverity } from "@/lib/mocks/activityLogs";
+import type { ActivityCategory, ActivityLogRecord, ActivitySeverity } from "@/lib/mocks/activityLogs";
 
 interface AuditLogResponse {
   id: string;
@@ -68,7 +68,5 @@ export const getAuditActivitiesFromApi = async (): Promise<ActivityLogRecord[]> 
     read: true,
   }));
 
-  return activities.length > 0 ? activities : fallbackActivityLogs;
+  return activities;
 };
-
-export { fallbackActivityLogs };

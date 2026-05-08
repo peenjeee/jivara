@@ -17,7 +17,7 @@ import { getNurseInitials, getPatientsForNurse } from "@/helpers/nurses";
 import { getDashboardRole } from "@/components/dashboard/navigation";
 import { patients } from "@/lib/mocks/patients";
 import type { NurseRecord, NurseStatus } from "@/lib/mocks/nurses";
-import { createNurseViaApi, deactivateNurseViaApi, fallbackNurses, getNursesFromApi, updateNurseViaApi } from "@/lib/nurseApi";
+import { createNurseViaApi, deactivateNurseViaApi, getNursesFromApi, updateNurseViaApi } from "@/lib/nurseApi";
 import { showConfirm, showError, showToast, showWarning } from "@/lib/swal";
 import { useNurseStore, type NurseFormValues } from "@/store/nurses";
 import { useAuthStore } from "@/store/auth";
@@ -47,10 +47,6 @@ export default function NurseListPage() {
   const nurses = useNurseStore((state) => state.nurses);
   const assignments = useNurseStore((state) => state.assignments);
   const setNurses = useNurseStore((state) => state.setNurses);
-  const addNurse = useNurseStore((state) => state.addNurse);
-  const updateNurse = useNurseStore((state) => state.updateNurse);
-  const toggleNurseStatus = useNurseStore((state) => state.toggleNurseStatus);
-  const deleteNurse = useNurseStore((state) => state.deleteNurse);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<NurseFilter>("all");
   const [currentPage, setCurrentPage] = useState(1);
@@ -73,7 +69,7 @@ export default function NurseListPage() {
         if (isMounted) setNurses(apiNurses);
       })
       .catch(() => {
-        if (isMounted && nurses.length === 0) setNurses(fallbackNurses);
+        if (isMounted) setNurses([]);
       });
 
     return () => {
@@ -100,13 +96,8 @@ export default function NurseListPage() {
       setNurses([createdNurse, ...nurses]);
     } catch (error) {
       const message = getApiErrorMessage(error);
-      if (message) {
-        showError(message);
-        return;
-      }
-
-      addNurse(values);
-      showWarning("API perawat tidak tersedia. Data sementara ditambahkan secara lokal.", "Mode Fallback");
+      showError(message || "Gagal menambahkan perawat dari API.");
+      return;
     }
 
     setIsModalOpen(false);
@@ -121,13 +112,8 @@ export default function NurseListPage() {
       setNurses(nurses.map((nurse) => nurse.id === editingNurse.id ? { ...updatedNurse, temporaryPassword: values.password ? true : nurse.temporaryPassword } : nurse));
     } catch (error) {
       const message = getApiErrorMessage(error);
-      if (message) {
-        showError(message);
-        return;
-      }
-
-      updateNurse(editingNurse.id, values);
-      showWarning("API perawat tidak tersedia. Perubahan sementara disimpan secara lokal.", "Mode Fallback");
+      showError(message || "Gagal memperbarui perawat dari API.");
+      return;
     }
 
     setEditingNurse(null);
@@ -151,13 +137,8 @@ export default function NurseListPage() {
       setNurses(nurses.map((item) => item.id === nurse.id ? { ...updatedNurse, temporaryPassword: item.temporaryPassword } : item));
     } catch (error) {
       const message = getApiErrorMessage(error);
-      if (message) {
-        showError(message);
-        return;
-      }
-
-      toggleNurseStatus(nurse.id);
-      showWarning("API perawat tidak tersedia. Status sementara diubah secara lokal.", "Mode Fallback");
+      showError(message || "Gagal mengubah status perawat dari API.");
+      return;
     }
 
     showToast(`Status perawat menjadi ${nextStatus}.`);
@@ -178,13 +159,8 @@ export default function NurseListPage() {
       setNurses(nurses.map((item) => item.id === nurse.id ? { ...item, status: "Nonaktif" } : item));
     } catch (error) {
       const message = getApiErrorMessage(error);
-      if (message) {
-        showError(message);
-        return;
-      }
-
-      deleteNurse(nurse.id);
-      showWarning("API perawat tidak tersedia. Data sementara dihapus secara lokal.", "Mode Fallback");
+      showError(message || "Gagal menonaktifkan perawat dari API.");
+      return;
     }
 
     showToast("Perawat berhasil dihapus.");

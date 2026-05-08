@@ -1,5 +1,5 @@
 import api from "@/lib/axios";
-import { medicationSchedules as fallbackSchedules, type MedicationScheduleRecord } from "@/lib/mocks/schedules";
+import type { MedicationScheduleRecord } from "@/lib/mocks/schedules";
 import { getPatientsFromApi } from "@/lib/patientApi";
 
 interface ScheduleResponse {
@@ -46,5 +46,5 @@ export const getSchedulesFromApi = async (): Promise<MedicationScheduleRecord[]>
     };
   });
 
-  return schedules.length > 0 ? schedules : fallbackSchedules;
+  return schedules;
 };

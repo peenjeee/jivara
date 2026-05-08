@@ -11,7 +11,8 @@ import SummaryCardGrid from "@/components/ui/SummaryCardGrid";
 import { FoodScanDetailModal } from "@/components/food-scan";
 import { getActivityDateKey } from "@/helpers/activityLogs";
 import { activityMatchesNurse } from "@/helpers/nurses";
-import { fallbackActivityLogs, getAuditActivitiesFromApi } from "@/lib/auditLogApi";
+import { getAlertActivitiesFromApi, resolveAlertViaApi } from "@/lib/alertsApi";
+import { getAuditActivitiesFromApi } from "@/lib/auditLogApi";
 import type { ActivityCategory, ActivityLogRecord } from "@/lib/mocks/activityLogs";
 import { showToast } from "@/lib/swal";
 import { useActivityLogStore } from "@/store/activityLog";
@@ -47,22 +48,24 @@ export default function ActivityLogPage({ initialPatientName = "", initialCatego
   const deferredSearch = useDeferredValue(search);
 
   useEffect(() => {
-    if (!readOnly) return;
-
     let isMounted = true;
 
-    getAuditActivitiesFromApi()
-      .then((auditActivities) => {
-        if (isMounted) setActivities(auditActivities);
+    const activityRequest = readOnly
+      ? Promise.all([getAuditActivitiesFromApi(), getAlertActivitiesFromApi()]).then(([auditActivities, alertActivities]) => [...alertActivities, ...auditActivities])
+      : getAlertActivitiesFromApi();
+
+    activityRequest
+      .then((nextActivities) => {
+        if (isMounted) setActivities(nextActivities);
       })
       .catch(() => {
-        if (isMounted && activities.length === 0) setActivities(fallbackActivityLogs);
+        if (isMounted) setActivities([]);
       });
 
     return () => {
       isMounted = false;
     };
-  }, [activities.length, readOnly, setActivities]);
+  }, [readOnly, setActivities]);
 
   const todayKey = new Date().toISOString().slice(0, 10);
 
@@ -139,6 +142,9 @@ export default function ActivityLogPage({ initialPatientName = "", initialCatego
 
   const markAllAsRead = () => {
     if (readOnly) return;
+    filteredActivities.forEach((activity) => {
+      if (activity.category === "Kepatuhan") resolveAlertViaApi(activity.id).catch(() => { });
+    });
     markAllActivitiesAsRead();
     showToast("Semua aktivitas ditandai sudah dibaca.");
   };
