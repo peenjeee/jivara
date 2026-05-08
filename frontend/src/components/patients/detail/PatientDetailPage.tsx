@@ -1,12 +1,14 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { useEffect, useState } from "react";
 import { Bell, ClipboardList, Siren, TrendingUp } from "lucide-react";
 import DashboardPageHeader from "@/components/dashboard/DashboardPageHeader";
 import DashboardPageShell from "@/components/dashboard/DashboardPageShell";
 import SummaryCardGrid from "@/components/ui/SummaryCardGrid";
 import type { PatientDetailData } from "@/helpers/patientDetails";
 import { getPatientSummary } from "@/helpers/patientDetails";
+import { getPatientDetailFromApi } from "@/lib/patientApi";
 import PatientFoodScanPanel from "./PatientFoodScanPanel";
 import PatientMedicineList from "./PatientMedicineList";
 import PatientProfileHero from "./PatientProfileHero";
@@ -18,18 +20,39 @@ const PatientActivityDistributionChart = dynamic(() => import("./PatientActivity
 
 interface PatientDetailPageProps {
   readonly data: PatientDetailData;
+  readonly patientId?: string;
 }
 
-export default function PatientDetailPage({ data }: PatientDetailPageProps) {
-  const summary = getPatientSummary(data);
+export default function PatientDetailPage({ data, patientId }: PatientDetailPageProps) {
+  const [detailData, setDetailData] = useState(data);
+
+  useEffect(() => {
+    if (!patientId) return;
+
+    let isMounted = true;
+
+    getPatientDetailFromApi(patientId, data)
+      .then((nextData) => {
+        if (isMounted) setDetailData(nextData);
+      })
+      .catch(() => {
+        if (isMounted) setDetailData(data);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [data, patientId]);
+
+  const summary = getPatientSummary(detailData);
   const stats = [
     {
       label: "Kepatuhan",
-      value: `${data.patient.adherence}%`,
-      tone: data.patient.adherence >= 80 ? "safe" : data.patient.adherence >= 60 ? "warning" : "critical",
+      value: `${detailData.patient.adherence}%`,
+      tone: detailData.patient.adherence >= 80 ? "safe" : detailData.patient.adherence >= 60 ? "warning" : "critical",
       color: "pine",
       icon: TrendingUp,
-      progress: data.patient.adherence,
+      progress: detailData.patient.adherence,
     },
     {
       label: "Obat Aktif",
@@ -61,19 +84,19 @@ export default function PatientDetailPage({ data }: PatientDetailPageProps) {
     
       />
 
-      <PatientProfileHero patient={data.patient} />
+      <PatientProfileHero patient={detailData.patient} />
       <SummaryCardGrid stats={stats} className="xl:!grid-cols-4" />
 
       <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(360px,0.8fr)]">
         <div className="min-w-0 space-y-6">
-          <PatientAdherenceChart patient={data.patient} />
-          <PatientMedicineList schedules={data.schedules} />
+          <PatientAdherenceChart patient={detailData.patient} />
+          <PatientMedicineList schedules={detailData.schedules} />
         </div>
 
         <div className="min-w-0 space-y-6">
-          <PatientActivityDistributionChart activities={data.activities} />
-          <PatientFoodScanPanel scans={data.scans} patientName={data.patient.name} />
-          <PatientRecentActivity activities={data.activities} patientName={data.patient.name} />
+          <PatientActivityDistributionChart activities={detailData.activities} />
+          <PatientFoodScanPanel scans={detailData.scans} patientName={detailData.patient.name} />
+          <PatientRecentActivity activities={detailData.activities} patientName={detailData.patient.name} />
         </div>
       </div>
     </DashboardPageShell>
