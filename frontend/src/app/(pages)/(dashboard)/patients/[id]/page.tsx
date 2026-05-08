@@ -1,6 +1,5 @@
-import { notFound } from "next/navigation";
 import { PatientDetailPage } from "@/components/patients/detail";
-import { getPatientDetailData } from "@/helpers/patientDetails";
+import { getFallbackPatientDetail } from "@/lib/patientApi";
 
 interface PatientDetailRouteProps {
   readonly params: Promise<{
@@ -10,9 +9,8 @@ interface PatientDetailRouteProps {
 
 export default async function PatientDetailRoute({ params }: PatientDetailRouteProps) {
   const { id } = await params;
-  const data = getPatientDetailData(decodeURIComponent(id));
+  const patientId = decodeURIComponent(id);
+  const data = getFallbackPatientDetail(patientId);
 
-  if (!data) notFound();
-
-  return <PatientDetailPage data={data} />;
+  return <PatientDetailPage data={data} patientId={patientId} />;
 }

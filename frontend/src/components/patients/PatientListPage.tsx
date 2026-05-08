@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useDeferredValue, useMemo, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useState } from "react";
 import { motion } from "motion/react";
 import { Plus } from "lucide-react";
 import DashboardPageHeader from "@/components/dashboard/DashboardPageHeader";
@@ -10,6 +10,7 @@ import Button from "@/components/ui/Button";
 import { getNextPatientOrder } from "@/helpers/patients";
 import { getNurseByPatientId } from "@/helpers/nurses";
 import { patients as initialPatients, type PatientRecord } from "@/lib/mocks/patients";
+import { getPatientsFromApi } from "@/lib/patientApi";
 import { showConfirm, showToast } from "@/lib/swal";
 import { useNurseStore } from "@/store/nurses";
 import AddPatientModal from "./AddPatientModal";
@@ -36,6 +37,22 @@ export default function PatientListPage({ mode = "manage" }: PatientListPageProp
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingPatient, setEditingPatient] = useState<PatientRecord | null>(null);
   const deferredSearch = useDeferredValue(search);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    getPatientsFromApi()
+      .then((patients) => {
+        if (isMounted) setPatientRecords(patients);
+      })
+      .catch(() => {
+        if (isMounted) setPatientRecords(initialPatients);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const filteredPatients = useMemo(() => {
     const query = deferredSearch.trim().toLowerCase();
