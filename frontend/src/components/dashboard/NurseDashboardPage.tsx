@@ -7,13 +7,13 @@ import DashboardPageHeader from "@/components/dashboard/DashboardPageHeader";
 import DashboardPageShell from "@/components/dashboard/DashboardPageShell";
 import { PatientTable } from "@/components/patients";
 import SummaryCardGrid from "@/components/ui/SummaryCardGrid";
-import { fallbackNurseDashboardData, getNurseDashboardData, type NurseDashboardData } from "@/lib/dashboardApi";
+import { emptyNurseDashboardData, getNurseDashboardData, type NurseDashboardData } from "@/lib/dashboardApi";
 import { useSplashScreen } from "@/components/ui/AppSplashScreen";
 
 export default function NurseDashboardPage() {
   const router = useRouter();
   const { isSplashFinished } = useSplashScreen();
-  const [dashboardData, setDashboardData] = useState<NurseDashboardData>(fallbackNurseDashboardData);
+  const [dashboardData, setDashboardData] = useState<NurseDashboardData>(emptyNurseDashboardData);
 
   useEffect(() => {
     let isMounted = true;
@@ -23,7 +23,7 @@ export default function NurseDashboardPage() {
         if (isMounted) setDashboardData(data);
       })
       .catch(() => {
-        if (isMounted) setDashboardData(fallbackNurseDashboardData);
+        if (isMounted) setDashboardData({ stats: [], patients: [] });
       });
 
     return () => {

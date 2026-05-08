@@ -1,7 +1,6 @@
 import { AlertTriangle, CalendarClock, CheckCircle2, UserRound, UsersRound } from "lucide-react";
 import type { SummaryCardItem } from "@/components/ui/SummaryCard";
 import api from "@/lib/axios";
-import { dashboardStats, recentPatients } from "@/lib/mocks/dashboard";
 import type { PatientRecord, PatientStatus } from "@/lib/mocks/patients";
 
 interface PatientListResponse {
@@ -102,7 +101,7 @@ export const getNurseDashboardData = async (): Promise<NurseDashboardData> => {
       { label: "Peringatan Kritis", value: String(criticalAlerts), helper: warningAlerts > 0 ? `${warningAlerts} peringatan aktif` : "", tone: criticalAlerts > 0 ? "critical" : "safe", color: "lime", icon: AlertTriangle },
       { label: "Kepatuhan Keseluruhan", value: criticalAlerts > 0 ? "Perlu dicek" : "Stabil", helper: "Berdasarkan alert aktif", tone: criticalAlerts > 0 ? "warning" : "safe", color: "leaf", icon: CheckCircle2, progress: criticalAlerts > 0 ? 67 : 90 },
     ],
-    patients: patients.length > 0 ? patients : recentPatients.slice(0, 5),
+    patients,
   };
 };
 
@@ -119,7 +118,7 @@ export const getAdminDashboardStats = async (): Promise<AdminDashboardStatsData>
   };
 };
 
-export const fallbackNurseDashboardData: NurseDashboardData = {
-  stats: dashboardStats,
-  patients: recentPatients.slice(0, 5),
+export const emptyNurseDashboardData: NurseDashboardData = {
+  stats: [],
+  patients: [],
 };

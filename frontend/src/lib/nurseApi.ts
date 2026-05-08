@@ -1,5 +1,5 @@
 import api from "@/lib/axios";
-import { nurses as fallbackNurses, type NurseGender, type NurseRecord, type NurseStatus } from "@/lib/mocks/nurses";
+import type { NurseGender, NurseRecord, NurseStatus } from "@/lib/mocks/nurses";
 import type { NurseFormValues } from "@/store/nurses";
 
 interface NurseResponse {
@@ -60,7 +60,7 @@ export const getNursesFromApi = async (): Promise<NurseRecord[]> => {
   const response = await api.get<PaginatedResponse<NurseResponse>>("/nurses", { params: { limit: 100 } });
   const nurses = response.data.data.map(mapNurse);
 
-  return nurses.length > 0 ? nurses : fallbackNurses;
+  return nurses;
 };
 
 export const createNurseViaApi = async (values: NurseFormValues): Promise<NurseRecord> => {
@@ -86,5 +86,3 @@ export const updateNurseViaApi = async (nurseId: string, values: NurseFormValues
 export const deactivateNurseViaApi = async (nurseId: string) => {
   await api.delete(`/nurses/${encodeURIComponent(nurseId)}`);
 };
-
-export { fallbackNurses };

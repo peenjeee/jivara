@@ -7,19 +7,13 @@ import Button from "@/components/ui/Button";
 import { showToast, showWarning } from "@/lib/swal";
 import { useAuthStore } from "@/store/auth";
 
-const fallbackAdmin = {
-  fullName: "Admin Jivara",
-  email: "admin@jivara.id",
-  phone: "6281200000000",
-};
-
 const numericPhone = (value: string | null | undefined) => (value ?? "").replace(/\D/g, "");
 
 export default function AdminProfileSettingsForm() {
   const { user, token, refreshToken, setAuth } = useAuthStore();
-  const [fullName, setFullName] = useState(user?.fullName ?? fallbackAdmin.fullName);
-  const [email, setEmail] = useState(user?.email ?? fallbackAdmin.email);
-  const [phone, setPhone] = useState(numericPhone(user?.phone ?? fallbackAdmin.phone));
+  const [fullName, setFullName] = useState(user?.fullName ?? "");
+  const [email, setEmail] = useState(user?.email ?? "");
+  const [phone, setPhone] = useState(numericPhone(user?.phone));
 
   const updatePhone = (value: string) => {
     setPhone(value.replace(/\D/g, ""));

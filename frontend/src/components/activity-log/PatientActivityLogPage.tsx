@@ -1,6 +1,6 @@
 "use client";
 
-import { useDeferredValue, useMemo, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useState } from "react";
 import { motion } from "motion/react";
 import { AlertTriangle, Bell, CheckCheck, ClipboardList } from "lucide-react";
 import DashboardPageHeader from "@/components/dashboard/DashboardPageHeader";
@@ -10,10 +10,9 @@ import SummaryCardGrid from "@/components/ui/SummaryCardGrid";
 import { FoodScanDetailModal } from "@/components/food-scan";
 import PatientMedicineDetailModal from "@/components/schedule/PatientMedicineDetailModal";
 import { getDateKey } from "@/helpers/patientSchedule";
-import { patients } from "@/lib/mocks/patients";
-import { medicationSchedules } from "@/lib/mocks/schedules";
 import type { MedicationScheduleRecord } from "@/lib/mocks/schedules";
 import type { ActivityCategory, ActivityLogRecord } from "@/lib/mocks/activityLogs";
+import { getPatientActivitiesFromApi, getPatientDashboardData } from "@/lib/patientDashboardApi";
 import { showToast } from "@/lib/swal";
 import { useActivityLogStore } from "@/store/activityLog";
 import ActivityDetailModal from "./ActivityDetailModal";
@@ -25,10 +24,9 @@ interface PatientActivityLogPageProps {
   readonly initialCategory?: string;
 }
 
-const mockPatient = patients[0];
-
 export default function PatientActivityLogPage({ initialCategory }: PatientActivityLogPageProps) {
   const activities = useActivityLogStore((state) => state.activities);
+  const setActivities = useActivityLogStore((state) => state.setActivities);
   const markActivityAsRead = useActivityLogStore((state) => state.markAsRead);
   const markAllActivitiesAsRead = useActivityLogStore((state) => state.markAllAsRead);
   const [search, setSearch] = useState("");
@@ -40,11 +38,32 @@ export default function PatientActivityLogPage({ initialCategory }: PatientActiv
   });
   const [selectedActivity, setSelectedActivity] = useState<ActivityLogRecord | null>(null);
   const [selectedSchedule, setSelectedSchedule] = useState<MedicationScheduleRecord | null>(null);
+  const [schedules, setSchedules] = useState<MedicationScheduleRecord[]>([]);
   const [selectedFoodScanId, setSelectedFoodScanId] = useState<string | null>(null);
   const deferredSearch = useDeferredValue(search);
   const todayKey = getDateKey(new Date());
 
-  const patientActivities = useMemo(() => activities.filter((activity) => activity.patientId === mockPatient.id), [activities]);
+  useEffect(() => {
+    let isMounted = true;
+
+    Promise.all([getPatientActivitiesFromApi(), getPatientDashboardData()])
+      .then(([nextActivities, dashboardData]) => {
+        if (!isMounted) return;
+        setActivities(nextActivities);
+        setSchedules(dashboardData.schedules);
+      })
+      .catch(() => {
+        if (!isMounted) return;
+        setActivities([]);
+        setSchedules([]);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [setActivities]);
+
+  const patientActivities = useMemo(() => activities, [activities]);
 
   const summaryStats = useMemo(() => {
     const unread = patientActivities.filter((activity) => !activity.read).length;
@@ -99,8 +118,8 @@ export default function PatientActivityLogPage({ initialCategory }: PatientActiv
   };
 
   const viewSchedule = (activity: ActivityLogRecord) => {
-    const schedule = medicationSchedules.find((currentSchedule) => currentSchedule.id === activity.scheduleId)
-      ?? medicationSchedules.find((currentSchedule) => currentSchedule.patientId === mockPatient.id && currentSchedule.medicineName === activity.medicineName);
+    const schedule = schedules.find((currentSchedule) => currentSchedule.id === activity.scheduleId)
+      ?? schedules.find((currentSchedule) => currentSchedule.medicineName === activity.medicineName);
 
     if (!schedule) return;
 

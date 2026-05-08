@@ -1,8 +1,6 @@
 import api from "@/lib/axios";
-import { activityLogs } from "@/lib/mocks/activityLogs";
-import { foodScans } from "@/lib/mocks/foodScans";
-import { patients as fallbackPatients, type PatientRecord, type PatientStatus } from "@/lib/mocks/patients";
-import { medicationSchedules, type MedicationScheduleRecord } from "@/lib/mocks/schedules";
+import type { PatientRecord, PatientStatus } from "@/lib/mocks/patients";
+import type { MedicationScheduleRecord } from "@/lib/mocks/schedules";
 import type { PatientDetailData } from "@/helpers/patientDetails";
 
 interface PatientListResponse {
@@ -107,31 +105,38 @@ const mapMedication = (patient: PatientRecord, medication: NonNullable<PatientDe
 export const getPatientsFromApi = async () => {
   const response = await api.get<PaginatedResponse<PatientListResponse>>("/patients", { params: { limit: 100, status: "active" } });
   const patients = response.data.data.map((patient) => mapPatient(patient, 100));
-  return patients.length > 0 ? patients : fallbackPatients;
+  return patients;
 };
 
-export const getPatientDetailFromApi = async (patientId: string, fallback: PatientDetailData): Promise<PatientDetailData> => {
+export const getPatientDetailFromApi = async (patientId: string): Promise<PatientDetailData> => {
   const response = await api.get<{ data: PatientDetailResponse }>(`/patients/${patientId}`);
   const detail = response.data.data;
-  const adherence = Math.round(detail.adherenceRate30d ?? detail.adherenceRate7d ?? fallback.patient.adherence);
+  const adherence = Math.round(detail.adherenceRate30d ?? detail.adherenceRate7d ?? 100);
   const patient = mapPatient({ ...detail, createdAt: detail.registeredAt ?? detail.createdAt }, adherence);
   const schedules = detail.activeMedications?.map((medication) => mapMedication(patient, medication)) ?? [];
 
   return {
     patient,
     schedules,
-    activities: activityLogs.filter((activity) => activity.patientId === fallback.patient.id).sort((a, b) => Date.parse(b.timestamp) - Date.parse(a.timestamp)),
-    scans: foodScans.filter((scan) => scan.patientId === fallback.patient.id).sort((a, b) => Date.parse(b.scannedAt) - Date.parse(a.scannedAt)),
+    activities: [],
+    scans: [],
   };
 };
 
-export const getFallbackPatientDetail = (patientId: string): PatientDetailData => {
-  const fallbackPatient = fallbackPatients.find((patient) => patient.id === patientId) ?? fallbackPatients[0];
-
+export const getInitialPatientDetail = (patientId: string): PatientDetailData => {
   return {
-    patient: fallbackPatient,
-    schedules: medicationSchedules.filter((schedule) => schedule.patientId === fallbackPatient.id),
-    activities: activityLogs.filter((activity) => activity.patientId === fallbackPatient.id).sort((a, b) => Date.parse(b.timestamp) - Date.parse(a.timestamp)),
-    scans: foodScans.filter((scan) => scan.patientId === fallbackPatient.id).sort((a, b) => Date.parse(b.scannedAt) - Date.parse(a.scannedAt)),
+    patient: {
+      id: patientId,
+      name: "-",
+      age: 0,
+      gender: "Pria",
+      status: "On Ideal Schedule",
+      lastVisit: "-",
+      adherence: 100,
+      avatar: "PX",
+    },
+    schedules: [],
+    activities: [],
+    scans: [],
   };
 };

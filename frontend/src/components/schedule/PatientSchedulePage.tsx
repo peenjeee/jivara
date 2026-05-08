@@ -7,16 +7,13 @@ import DashboardPageShell from "@/components/dashboard/DashboardPageShell";
 import SummaryCardGrid from "@/components/ui/SummaryCardGrid";
 import type { SummaryCardItem } from "@/components/ui/SummaryCard";
 import { getDateKey, getMonthStart, getSchedulesForDate, isSameDate } from "@/helpers/patientSchedule";
-import { patients } from "@/lib/mocks/patients";
-import { medicationSchedules, type MedicationScheduleRecord } from "@/lib/mocks/schedules";
-import { getSchedulesFromApi } from "@/lib/scheduleApi";
+import type { MedicationScheduleRecord } from "@/lib/mocks/schedules";
+import { confirmMedicationScheduleViaApi, getConfirmedScheduleDates, getPatientDashboardData } from "@/lib/patientDashboardApi";
 import { showConfirm, showToast } from "@/lib/swal";
 import { usePatientDashboardStore } from "@/store/patientDashboard";
 import PatientDailyMedicineList from "./PatientDailyMedicineList";
 import PatientMedicationCalendar from "./PatientMedicationCalendar";
 import PatientScheduleDaySummary from "./PatientScheduleDaySummary";
-
-const mockPatient = patients[0];
 
 export default function PatientSchedulePage() {
   const today = new Date();
@@ -24,29 +21,29 @@ export default function PatientSchedulePage() {
   const [visibleMonth, setVisibleMonth] = useState(getMonthStart(today));
   const lastScan = usePatientDashboardStore((state) => state.lastScan);
   const confirmedScheduleDates = usePatientDashboardStore((state) => state.confirmedScheduleDates);
+  const setConfirmedScheduleDates = usePatientDashboardStore((state) => state.setConfirmedScheduleDates);
   const confirmScheduleForDate = usePatientDashboardStore((state) => state.confirmScheduleForDate);
-  const [allSchedules, setAllSchedules] = useState<MedicationScheduleRecord[]>(medicationSchedules);
-  const patientSchedules = useMemo(() => {
-    const apiPatientSchedules = allSchedules.filter((schedule) => schedule.patientName === mockPatient.name);
-    if (apiPatientSchedules.length > 0) return apiPatientSchedules;
-    return allSchedules.filter((schedule) => schedule.patientId === mockPatient.id);
-  }, [allSchedules]);
+  const [patientSchedules, setPatientSchedules] = useState<MedicationScheduleRecord[]>([]);
 
   useEffect(() => {
     let isMounted = true;
 
-    getSchedulesFromApi()
-      .then((apiSchedules) => {
-        if (isMounted) setAllSchedules(apiSchedules);
+    getPatientDashboardData()
+      .then((data) => {
+        if (!isMounted) return;
+        setPatientSchedules(data.schedules);
+        setConfirmedScheduleDates(getConfirmedScheduleDates(data.medicationLogs));
       })
       .catch(() => {
-        if (isMounted) setAllSchedules(medicationSchedules);
+        if (!isMounted) return;
+        setPatientSchedules([]);
+        setConfirmedScheduleDates({});
       });
 
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [setConfirmedScheduleDates]);
   const schedulesForSelectedDate = useMemo(() => getSchedulesForDate(patientSchedules, selectedDate), [patientSchedules, selectedDate]);
   const selectedDateKey = getDateKey(selectedDate);
   const confirmedScheduleIds = confirmedScheduleDates[selectedDateKey] ?? [];
@@ -97,7 +94,16 @@ export default function PatientSchedulePage() {
       if (!result.isConfirmed) return;
     }
 
-    confirmScheduleForDate(selectedDateKey, scheduleId);
+    const schedule = patientSchedules.find((currentSchedule) => currentSchedule.id === scheduleId);
+    if (!schedule) return;
+
+    try {
+      await confirmMedicationScheduleViaApi(schedule, selectedDate);
+      confirmScheduleForDate(selectedDateKey, scheduleId);
+    } catch {
+      return;
+    }
+
     showToast("Obat berhasil dikonfirmasi.", "success");
   };
 

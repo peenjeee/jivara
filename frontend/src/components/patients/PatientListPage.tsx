@@ -9,7 +9,7 @@ import DashboardPageShell from "@/components/dashboard/DashboardPageShell";
 import Button from "@/components/ui/Button";
 import { getNextPatientOrder } from "@/helpers/patients";
 import { getNurseByPatientId } from "@/helpers/nurses";
-import { patients as initialPatients, type PatientRecord } from "@/lib/mocks/patients";
+import type { PatientRecord } from "@/lib/mocks/patients";
 import { getPatientsFromApi } from "@/lib/patientApi";
 import { showConfirm, showToast } from "@/lib/swal";
 import { useNurseStore } from "@/store/nurses";
@@ -30,7 +30,7 @@ export default function PatientListPage({ mode = "manage" }: PatientListPageProp
   const router = useRouter();
   const nurses = useNurseStore((state) => state.nurses);
   const assignments = useNurseStore((state) => state.assignments);
-  const [patientRecords, setPatientRecords] = useState(initialPatients);
+  const [patientRecords, setPatientRecords] = useState<PatientRecord[]>([]);
   const [search, setSearch] = useState("");
   const [activeFilter, setActiveFilter] = useState<PatientFilter>("all");
   const [currentPage, setCurrentPage] = useState(1);
@@ -46,7 +46,7 @@ export default function PatientListPage({ mode = "manage" }: PatientListPageProp
         if (isMounted) setPatientRecords(patients);
       })
       .catch(() => {
-        if (isMounted) setPatientRecords(initialPatients);
+        if (isMounted) setPatientRecords([]);
       });
 
     return () => {

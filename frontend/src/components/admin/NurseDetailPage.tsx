@@ -43,7 +43,6 @@ export default function NurseDetailPage({ nurseId }: NurseDetailPageProps) {
   const nurses = useNurseStore((state) => state.nurses);
   const assignments = useNurseStore((state) => state.assignments);
   const reassignPatients = useNurseStore((state) => state.reassignPatients);
-  const deleteNurse = useNurseStore((state) => state.deleteNurse);
   const activities = useActivityLogStore((state) => state.activities);
   const addActivity = useActivityLogStore((state) => state.addActivity);
   const markActivityAsRead = useActivityLogStore((state) => state.markAsRead);
@@ -123,13 +122,8 @@ export default function NurseDetailPage({ nurseId }: NurseDetailPageProps) {
       await deactivateNurseViaApi(nurse.id);
     } catch (error) {
       const message = getApiErrorMessage(error);
-      if (message) {
-        showError(message);
-        return;
-      }
-
-      deleteNurse(nurse.id);
-      showWarning("API perawat tidak tersedia. Data sementara dihapus secara lokal.", "Mode Fallback");
+      showError(message || "Gagal menonaktifkan perawat dari API.");
+      return;
     }
 
     showToast("Perawat berhasil dihapus.");
