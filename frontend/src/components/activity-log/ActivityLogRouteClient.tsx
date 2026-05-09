@@ -1,8 +1,10 @@
 "use client";
 
+import { useEffect } from "react";
 import dynamic from "next/dynamic";
+import { useRouter } from "next/navigation";
 import DashboardRouteFallback from "@/components/dashboard/DashboardRouteFallback";
-import { getDashboardRole } from "@/components/dashboard/navigation";
+import { getDashboardRole, isOperationalAdminRole } from "@/components/dashboard/navigation";
 import { useAuthStore } from "@/store/auth";
 
 const ActivityLogPage = dynamic(() => import("./ActivityLogPage"), { ssr: false, loading: () => <DashboardRouteFallback /> });
@@ -14,14 +16,21 @@ interface ActivityLogRouteClientProps {
 }
 
 export default function ActivityLogRouteClient({ initialPatientName, initialCategory }: ActivityLogRouteClientProps) {
+  const router = useRouter();
   const user = useAuthStore((state) => state.user);
   const hasAuthHydrated = useAuthStore((state) => state.hasHydrated);
   const dashboardRole = getDashboardRole(user?.role);
 
-  if (!hasAuthHydrated) return null;
+  useEffect(() => {
+    if (!hasAuthHydrated || dashboardRole !== "super_admin") return;
+    router.replace("/dashboard");
+  }, [dashboardRole, hasAuthHydrated, router]);
 
-  return dashboardRole === "nurse" || dashboardRole === "admin" ? (
-    <ActivityLogPage initialPatientName={initialPatientName} initialCategory={initialCategory} readOnly={dashboardRole === "admin"} />
+  if (!hasAuthHydrated) return null;
+  if (dashboardRole === "super_admin") return <DashboardRouteFallback />;
+
+  return dashboardRole === "nurse" || isOperationalAdminRole(dashboardRole) ? (
+    <ActivityLogPage initialPatientName={initialPatientName} initialCategory={initialCategory} readOnly={isOperationalAdminRole(dashboardRole)} />
   ) : (
     <PatientActivityLogPage initialCategory={initialCategory} />
   );

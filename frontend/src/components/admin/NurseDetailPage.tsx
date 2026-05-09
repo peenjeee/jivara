@@ -14,7 +14,7 @@ import Button from "@/components/ui/Button";
 import DetailItem from "@/components/ui/DetailItem";
 import SummaryCardGrid from "@/components/ui/SummaryCardGrid";
 import { activityMatchesNurse, getAverageAdherence, getNurseByPatientId, getNurseInitials, getPatientsForNurse } from "@/helpers/nurses";
-import { getDashboardRole } from "@/components/dashboard/navigation";
+import { getDashboardRole, isOperationalAdminRole } from "@/components/dashboard/navigation";
 import { patients } from "@/lib/mocks/patients";
 import type { ActivityLogRecord } from "@/lib/mocks/activityLogs";
 import { showConfirm, showToast, showWarning } from "@/lib/swal";
@@ -49,11 +49,11 @@ export default function NurseDetailPage({ nurseId }: NurseDetailPageProps) {
   const nurseActivities = useMemo(() => nurse ? activities.filter((activity) => activityMatchesNurse(activity, assignments, nurse.id)) : [], [activities, assignments, nurse]);
 
   useEffect(() => {
-    if (!hasAuthHydrated || dashboardRole === "admin" || dashboardRole === "nurse") return;
+    if (!hasAuthHydrated || isOperationalAdminRole(dashboardRole) || dashboardRole === "nurse") return;
     router.replace("/dashboard");
   }, [dashboardRole, hasAuthHydrated, router]);
 
-  if (!hasAuthHydrated || dashboardRole === "patient") return null;
+  if (!hasAuthHydrated || (dashboardRole !== "nurse" && !isOperationalAdminRole(dashboardRole))) return null;
 
   if (!nurse) {
     return (
@@ -66,7 +66,7 @@ export default function NurseDetailPage({ nurseId }: NurseDetailPageProps) {
   const averageAdherence = getAverageAdherence(assignedPatients);
   const riskyPatients = assignedPatients.filter((patient) => patient.status !== "On Ideal Schedule").length;
   const unreadLogs = nurseActivities.filter((activity) => !activity.read).length;
-  const isAdminView = dashboardRole === "admin";
+  const isAdminView = isOperationalAdminRole(dashboardRole);
   const stats = [
     { label: "Pasien Ditangani", value: String(assignedPatients.length), tone: "neutral" as const, color: "pine" as const, icon: UserRound },
     { label: "Avg Kepatuhan", value: `${averageAdherence}%`, tone: averageAdherence >= 75 ? "safe" as const : "critical" as const, color: "leaf" as const, icon: CheckCheck },
@@ -205,12 +205,12 @@ export default function NurseDetailPage({ nurseId }: NurseDetailPageProps) {
         </div>
       </motion.section>
 
-      <section className="mt-8">
+      <motion.section className="mt-8" initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1], delay: 0.26 }}>
         <h2 className="font-display text-2xl font-extrabold tracking-[-0.04em] text-text-main sm:text-3xl">Log Terkait Perawat</h2>
         <div className="mt-5">
           <ActivityFeed activities={nurseActivities} visibleCount={6} readOnly={isAdminView} onLoadMore={() => { }} onMarkRead={markActivityAsRead} onViewDetail={setSelectedActivity} />
         </div>
-      </section>
+      </motion.section>
 
       <BulkReassignModal isOpen={isReassignOpen} selectedCount={selectedPatientIds.length} sourceNurseId={nurse.id} nurses={nurses} onClose={() => setIsReassignOpen(false)} onSubmit={handleReassign} />
       <ActivityDetailModal activity={selectedActivity} onClose={() => setSelectedActivity(null)} onViewFoodScan={() => setSelectedActivity(null)} onViewSchedule={() => setSelectedActivity(null)} />

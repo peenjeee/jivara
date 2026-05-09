@@ -1,15 +1,17 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import Cookies from "js-cookie";
+import axios from "axios";
 import { LogOut } from "lucide-react";
 import api from "@/lib/axios";
 import { SimpleFooter } from "@/components/landing/Footer";
 import ForcePasswordChangeModal from "@/components/auth/ForcePasswordChangeModal";
 import { showConfirm, showToast } from "@/lib/swal";
 import { useAuthStore } from "@/store/auth";
+import type { User } from "@/types/auth";
 import { useIsStandalonePwa } from "@/hooks";
 import PwaTopLogoBar from "@/components/ui/PwaTopLogoBar";
 import DashboardBottomNav from "./DashboardBottomNav";
@@ -20,10 +22,88 @@ interface DashboardLayoutProps {
 }
 
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
-  const { logout, refreshToken } = useAuthStore();
+  const { logout, refreshToken, user, hasHydrated, updateUser } = useAuthStore();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [isCheckingAccount, setIsCheckingAccount] = useState(false);
+  const isSyncingRef = useRef(false);
   const isStandalonePwa = useIsStandalonePwa();
+  const pathname = usePathname();
   const router = useRouter();
+  const userRole = user?.role;
+  const isApprovalTestRoute = pathname.startsWith("/admin-approvals");
+
+  const syncCurrentUser = useCallback(async (blockRender = false) => {
+    if (!hasHydrated || isLoggingOut) return;
+
+    if (isApprovalTestRoute) {
+      setIsCheckingAccount(false);
+      return;
+    }
+
+    if (userRole !== "admin") {
+      setIsCheckingAccount(false);
+      return;
+    }
+
+    if (isSyncingRef.current) return;
+    isSyncingRef.current = true;
+
+    if (blockRender) setIsCheckingAccount(true);
+
+    try {
+      let currentUser: User;
+
+      if (refreshToken) {
+        const response = await axios.post(`${api.defaults.baseURL}/auth/status`, { refresh_token: refreshToken });
+        currentUser = response.data.data.user;
+      } else {
+        const response = await api.get("/auth/me");
+        currentUser = response.data.data;
+      }
+
+      updateUser(currentUser);
+
+      if (currentUser.role === "admin" && (currentUser.accountStatus ?? "active") !== "active") {
+        router.replace("/account-status");
+        return;
+      }
+    } catch {
+      router.replace("/account-status");
+    } finally {
+      isSyncingRef.current = false;
+      if (blockRender) setIsCheckingAccount(false);
+    }
+  }, [hasHydrated, isApprovalTestRoute, isLoggingOut, refreshToken, router, updateUser, userRole]);
+
+  useEffect(() => {
+    if (!hasHydrated || !userRole) return;
+
+    if (userRole === "admin") void Promise.resolve().then(() => syncCurrentUser(true));
+    const intervalId = window.setInterval(() => {
+      void syncCurrentUser();
+    }, 15000);
+
+    const handleFocus = () => {
+      void syncCurrentUser();
+    };
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") void syncCurrentUser();
+    };
+
+    window.addEventListener("focus", handleFocus);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      window.clearInterval(intervalId);
+      window.removeEventListener("focus", handleFocus);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [hasHydrated, syncCurrentUser, userRole]);
+
+  useEffect(() => {
+    if (!hasHydrated || !userRole) return;
+    if (userRole === "admin") void Promise.resolve().then(() => syncCurrentUser(true));
+  }, [hasHydrated, pathname, syncCurrentUser, userRole]);
 
   const handleLogout = async () => {
     const result = await showConfirm("Keluar Akun?", "Anda perlu masuk kembali untuk mengakses data Anda.", "Ya, Keluar");
@@ -59,6 +139,17 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         <div className="flex flex-col items-center space-y-4">
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
           <p className="text-sm font-medium text-text-secondary">Sedang keluar ...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!hasHydrated || (!user && !isApprovalTestRoute) || isCheckingAccount) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-surface" aria-label="Memeriksa status akun">
+        <div className="flex flex-col items-center space-y-4">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
+          <p className="text-sm font-medium text-text-secondary">Memeriksa status akun ...</p>
         </div>
       </div>
     );

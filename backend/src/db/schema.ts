@@ -24,15 +24,21 @@ export const users = pgTable("users", {
   email: varchar("email", { length: 256 }).notNull().unique(),
   password: text("password").notNull(),
   role: varchar("role", { length: 50 }).notNull().default("nurse"),
+  accountStatus: varchar("account_status", { length: 20 }).notNull().default("active"),
   age: integer("age").notNull().default(0),
   gender: varchar("gender", { length: 10 }),
   address: text("address"),
   isActive: boolean("is_active").default(true),
   mustChangePassword: boolean("must_change_password").default(false),
+  approvedBy: uuid("approved_by"),
+  approvedAt: timestamp("approved_at"),
+  rejectedAt: timestamp("rejected_at"),
+  rejectedReason: text("rejected_reason"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => ({
   roleIdx: index("idx_users_role").on(table.role),
+  accountStatusIdx: index("idx_users_account_status").on(table.accountStatus),
   phoneIdx: index("idx_users_phone").on(table.phone),
 }));
 

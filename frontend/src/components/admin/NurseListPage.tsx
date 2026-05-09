@@ -13,7 +13,7 @@ import SearchField from "@/components/ui/SearchField";
 import ToolbarCard from "@/components/ui/ToolbarCard";
 import PatientPagination from "@/components/patients/PatientPagination";
 import { getNurseInitials, getPatientsForNurse } from "@/helpers/nurses";
-import { getDashboardRole } from "@/components/dashboard/navigation";
+import { getDashboardRole, isOperationalAdminRole } from "@/components/dashboard/navigation";
 import { patients } from "@/lib/mocks/patients";
 import type { NurseRecord, NurseStatus } from "@/lib/mocks/nurses";
 import { showConfirm, showToast, showWarning } from "@/lib/swal";
@@ -51,7 +51,7 @@ export default function NurseListPage() {
   const deferredSearch = useDeferredValue(search);
 
   useEffect(() => {
-    if (!hasAuthHydrated || dashboardRole === "admin" || dashboardRole === "nurse") return;
+    if (!hasAuthHydrated || isOperationalAdminRole(dashboardRole) || dashboardRole === "nurse") return;
     router.replace("/dashboard");
   }, [dashboardRole, hasAuthHydrated, router]);
 
@@ -66,7 +66,7 @@ export default function NurseListPage() {
   const totalPages = Math.max(1, Math.ceil(filteredNurses.length / pageSize));
   const paginatedNurses = filteredNurses.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
-  if (!hasAuthHydrated || dashboardRole === "patient") return null;
+  if (!hasAuthHydrated || (dashboardRole !== "nurse" && !isOperationalAdminRole(dashboardRole))) return null;
 
   const handleAddNurse = (values: NurseFormValues) => {
     addNurse(values);

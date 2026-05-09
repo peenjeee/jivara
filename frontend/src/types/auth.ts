@@ -1,13 +1,22 @@
+export type UserRole = "super_admin" | "admin" | "nurse" | "patient";
+export type AccountStatus = "pending" | "active" | "rejected" | "suspended";
+
 export interface User {
   id: string;
   fullName: string;
   email: string;
   phone?: string | null;
-  role: string;
+  role: UserRole | string;
+  accountStatus?: AccountStatus | string | null;
   age: number;
   gender?: string | null;
   address?: string | null;
   mustChangePassword?: boolean | null;
+  rejectedReason?: string | null;
+  approvedBy?: string | null;
+  approvedAt?: string | null;
+  rejectedAt?: string | null;
+  createdAt?: string | null;
 }
 
 /**

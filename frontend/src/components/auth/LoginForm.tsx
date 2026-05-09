@@ -14,6 +14,11 @@ import Button from "@/components/ui/Button";
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+function getPostLoginPath(user: { readonly role?: string | null; readonly accountStatus?: string | null }, callbackUrl: string | null) {
+  if (user.role === "admin" && (user.accountStatus ?? "active") !== "active") return "/account-status";
+  return callbackUrl?.startsWith("/") ? callbackUrl : "/dashboard";
+}
+
 export default function LoginForm() {
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
@@ -61,7 +66,7 @@ export default function LoginForm() {
 
       showToast("Anda berhasil masuk.", "success");
       const callbackUrl = searchParams.get("callbackUrl");
-      router.push(callbackUrl?.startsWith("/") ? callbackUrl : "/dashboard");
+      router.push(getPostLoginPath(user, callbackUrl));
     } catch {
       closeAlert();
       showError("Login gagal. Periksa kembali email dan kata sandi Anda.");

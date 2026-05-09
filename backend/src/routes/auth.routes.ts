@@ -8,6 +8,7 @@ import {
   validateLoginIdentifier,
   validateRefreshToken,
   validateCompletePasswordChange,
+  validateRejectAdminApproval,
 } from "../validators/auth.validator";
 
 const router = Router();
@@ -25,6 +26,19 @@ const loginLimiter = rateLimit({
   },
 });
 
+const registerLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: process.env.NODE_ENV === "production" ? 10 : 100,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skipSuccessfulRequests: true,
+  message: {
+    status: "gagal",
+    message: "Terlalu banyak percobaan pendaftaran, silakan coba lagi nanti.",
+    error_code: "REGISTER_RATE_LIMITED",
+  },
+});
+
 /**
  * @swagger
  * tags:
@@ -36,10 +50,9 @@ const loginLimiter = rateLimit({
  * @swagger
  * /api/auth/register:
  *   post:
- *     summary: Daftarkan pengguna baru (admin only)
+ *     summary: Daftarkan calon admin baru
  *     tags: [Auth]
- *     security:
- *       - bearerAuth: []
+ *     security: []
  *     requestBody:
  *       required: true
  *       content:
@@ -69,19 +82,45 @@ const loginLimiter = rateLimit({
  *         description: Pengguna berhasil terdaftar
  *       400:
  *         description: Permintaan tidak valid
- *       401:
- *         description: Token akses diperlukan
- *       403:
- *         description: Hanya admin yang dapat mendaftarkan pengguna
  *       409:
  *         description: Pengguna sudah terdaftar
  */
 router.post(
   "/register",
-  authenticateToken,
-  authorizeRoles("admin"),
+  registerLimiter,
   validateRegister,
   authController.register
+);
+
+router.get(
+  "/admin-approvals",
+  authController.listAdminApprovals
+);
+
+router.post(
+  "/admin-approvals/:id/approve",
+  authController.approveAdminApproval
+);
+
+router.post(
+  "/admin-approvals/:id/reject",
+  validateRejectAdminApproval,
+  authController.rejectAdminApproval
+);
+
+router.post(
+  "/admin-approvals/:id/activate",
+  authController.activateSuspendedAdmin
+);
+
+router.post(
+  "/admin-approvals/:id/restore",
+  authController.restoreRejectedAdmin
+);
+
+router.post(
+  "/admin-approvals/:id/suspend",
+  authController.suspendActiveAdmin
 );
 
 /**
@@ -208,6 +247,8 @@ router.put(
  *         description: Token refresh tidak valid atau kedaluwarsa
  */
 router.post("/refresh", validateRefreshToken, authController.refresh);
+
+router.post("/status", validateRefreshToken, authController.getStatus);
 
 /**
  * @swagger

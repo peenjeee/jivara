@@ -1,6 +1,6 @@
 import DashboardAccountActions from "./DashboardAccountActions";
 import DashboardNavItem from "./DashboardNavItem";
-import { getDashboardNavItems, type DashboardNavLabel, type DashboardRole } from "./navigation";
+import { getDashboardNavItems, isAdminDashboardRole, type DashboardNavLabel, type DashboardRole } from "./navigation";
 import Image from "next/image";
 import { getUnreadActivityCount } from "@/helpers/activityLogs";
 import { patients } from "@/lib/mocks/patients";
@@ -14,7 +14,7 @@ interface DashboardSidebarProps {
 }
 
 export default function DashboardSidebar({ activeItem, role, onLogout, onNavigate }: DashboardSidebarProps) {
-  const unreadActivityCount = useActivityLogStore((state) => role === "admin" ? 0 : getUnreadActivityCount(state.activities, role === "patient" ? patients[0].id : undefined));
+  const unreadActivityCount = useActivityLogStore((state) => isAdminDashboardRole(role) ? 0 : getUnreadActivityCount(state.activities, role === "patient" ? patients[0].id : undefined));
   const navItems = getDashboardNavItems(role);
 
   return (
@@ -45,7 +45,7 @@ export default function DashboardSidebar({ activeItem, role, onLogout, onNavigat
       </nav>
 
       <div className="mt-auto space-y-3">
-        <DashboardAccountActions onLogout={onLogout} />
+        <DashboardAccountActions onLogout={onLogout} hideSettings={role === "super_admin"} />
       </div>
     </>
   );

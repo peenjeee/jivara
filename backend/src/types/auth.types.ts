@@ -10,6 +10,10 @@ export interface RegisterDTO {
   address?: string;
 }
 
+export interface RejectAdminApprovalDTO {
+  reason?: string;
+}
+
 export interface LoginDTO {
   identifier?: string;
   email?: string;
@@ -41,11 +45,16 @@ export interface UserProfile {
   email: string;
   phone: string | null;
   role: string;
+  accountStatus?: string;
   age: number;
   gender?: string | null;
   address?: string | null;
   isActive?: boolean;
   mustChangePassword?: boolean | null;
+  approvedBy?: string | null;
+  approvedAt?: Date | null;
+  rejectedAt?: Date | null;
+  rejectedReason?: string | null;
   createdAt?: Date | null;
 }
 

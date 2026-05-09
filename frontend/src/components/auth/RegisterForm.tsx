@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import axios from "axios";
 import { Lock, Mail, Phone, User, UserPlus } from "lucide-react";
 import api from "@/lib/axios";
 import { closeAlert, showError, showLoading, showToast, showWarning } from "@/lib/swal";
@@ -55,14 +56,16 @@ export default function RegisterForm() {
         email,
         phone,
         password,
-        role: "nurse",
       });
 
-      showToast("Akun Anda telah terdaftar. Silakan masuk.", "success");
+      showToast("Pendaftaran berhasil!", "success");
       router.push("/login");
-    } catch {
+    } catch (error) {
       closeAlert();
-      showError("Terjadi kesalahan saat mendaftar. Silakan coba lagi.");
+      const message = axios.isAxiosError(error) && typeof error.response?.data?.message === "string"
+        ? error.response.data.message
+        : "Terjadi kesalahan saat mendaftar. Silakan coba lagi.";
+      showError(message);
     } finally {
       setLoading(false);
     }

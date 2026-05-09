@@ -1,6 +1,6 @@
 import { db } from "../db";
 import { users, refreshTokens } from "../db/schema";
-import { eq, or } from "drizzle-orm";
+import { and, desc, eq, or } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
@@ -8,6 +8,7 @@ import {
   RegisterDTO,
   LoginDTO,
   CompletePasswordChangeDTO,
+  RejectAdminApprovalDTO,
   TokenPayload,
   AUTH_CONSTANTS,
 } from "../types/auth.types";
@@ -31,8 +32,26 @@ export const generateRefreshToken = async (userId: string): Promise<string> => {
   return token;
 };
 
+const publicUserFields = {
+  id: users.id,
+  fullName: users.fullName,
+  email: users.email,
+  phone: users.phone,
+  role: users.role,
+  accountStatus: users.accountStatus,
+  age: users.age,
+  gender: users.gender,
+  address: users.address,
+  mustChangePassword: users.mustChangePassword,
+  approvedBy: users.approvedBy,
+  approvedAt: users.approvedAt,
+  rejectedAt: users.rejectedAt,
+  rejectedReason: users.rejectedReason,
+  createdAt: users.createdAt,
+};
+
 /**
- * Mendaftarkan akun perawat baru oleh admin.
+ * Public register hanya membuat calon admin berstatus pending.
  */
 export const registerUser = async (dto: RegisterDTO) => {
   // Cek pengguna yang sudah ada
@@ -59,18 +78,20 @@ export const registerUser = async (dto: RegisterDTO) => {
       fullName: dto.fullName,
       email: dto.email,
       password: hashedPassword,
-      role: "nurse",
+      role: "admin",
+      accountStatus: "pending",
       phone: dto.phone || null,
       gender: dto.gender || null,
       address: dto.address || null,
       age: dto.age || 0,
-      mustChangePassword: true,
+      mustChangePassword: false,
     })
     .returning({
       id: users.id,
       fullName: users.fullName,
       email: users.email,
       role: users.role,
+      accountStatus: users.accountStatus,
       createdAt: users.createdAt,
     });
 
@@ -125,12 +146,135 @@ export const loginUser = async (dto: LoginDTO) => {
       email: foundUser.email,
       phone: foundUser.phone,
       role: foundUser.role,
+      accountStatus: foundUser.accountStatus,
       age: foundUser.age,
       gender: foundUser.gender,
       address: foundUser.address,
       mustChangePassword: foundUser.mustChangePassword,
+      rejectedReason: foundUser.rejectedReason,
     },
   };
+};
+
+export const listPendingAdminApprovals = async () => {
+  return db
+    .select(publicUserFields)
+    .from(users)
+    .where(eq(users.role, "admin"))
+    .orderBy(desc(users.createdAt));
+};
+
+export const getAdminApprovalSummary = async () => {
+  const admins = await db
+    .select({ accountStatus: users.accountStatus })
+    .from(users)
+    .where(eq(users.role, "admin"));
+
+  return admins.reduce(
+    (summary, user) => {
+      if (user.accountStatus === "pending") summary.pending += 1;
+      else if (user.accountStatus === "rejected") summary.rejected += 1;
+      else if (user.accountStatus === "suspended") summary.suspended += 1;
+      else summary.active += 1;
+      return summary;
+    },
+    { pending: 0, active: 0, rejected: 0, suspended: 0 }
+  );
+};
+
+export const approveAdminApproval = async (adminId: string, approverId: string | null) => {
+  const [updatedUser] = await db
+    .update(users)
+    .set({
+      accountStatus: "active",
+      approvedBy: approverId,
+      approvedAt: new Date(),
+      rejectedAt: null,
+      rejectedReason: null,
+      updatedAt: new Date(),
+    })
+    .where(and(eq(users.id, adminId), eq(users.role, "admin"), eq(users.accountStatus, "pending")))
+    .returning(publicUserFields);
+
+  if (!updatedUser) {
+    throw { status: 404, message: "Pengajuan admin tidak ditemukan atau sudah diproses", code: "APPROVAL_NOT_FOUND" };
+  }
+
+  return updatedUser;
+};
+
+export const rejectAdminApproval = async (adminId: string, dto: RejectAdminApprovalDTO) => {
+  const [updatedUser] = await db
+    .update(users)
+    .set({
+      accountStatus: "rejected",
+      rejectedAt: new Date(),
+      rejectedReason: dto.reason?.trim() || null,
+      updatedAt: new Date(),
+    })
+    .where(and(eq(users.id, adminId), eq(users.role, "admin"), eq(users.accountStatus, "pending")))
+    .returning(publicUserFields);
+
+  if (!updatedUser) {
+    throw { status: 404, message: "Pengajuan admin tidak ditemukan atau sudah diproses", code: "APPROVAL_NOT_FOUND" };
+  }
+
+  return updatedUser;
+};
+
+export const activateSuspendedAdmin = async (adminId: string, approverId: string | null) => {
+  const [updatedUser] = await db
+    .update(users)
+    .set({
+      accountStatus: "active",
+      approvedBy: approverId,
+      approvedAt: new Date(),
+      updatedAt: new Date(),
+    })
+    .where(and(eq(users.id, adminId), eq(users.role, "admin"), eq(users.accountStatus, "suspended")))
+    .returning(publicUserFields);
+
+  if (!updatedUser) {
+    throw { status: 404, message: "Admin suspend tidak ditemukan", code: "SUSPENDED_ADMIN_NOT_FOUND" };
+  }
+
+  return updatedUser;
+};
+
+export const restoreRejectedAdmin = async (adminId: string) => {
+  const [updatedUser] = await db
+    .update(users)
+    .set({
+      accountStatus: "pending",
+      rejectedAt: null,
+      rejectedReason: null,
+      updatedAt: new Date(),
+    })
+    .where(and(eq(users.id, adminId), eq(users.role, "admin"), eq(users.accountStatus, "rejected")))
+    .returning(publicUserFields);
+
+  if (!updatedUser) {
+    throw { status: 404, message: "Admin ditolak tidak ditemukan", code: "REJECTED_ADMIN_NOT_FOUND" };
+  }
+
+  return updatedUser;
+};
+
+export const suspendActiveAdmin = async (adminId: string) => {
+  const [updatedUser] = await db
+    .update(users)
+    .set({
+      accountStatus: "suspended",
+      updatedAt: new Date(),
+    })
+    .where(and(eq(users.id, adminId), eq(users.role, "admin"), eq(users.accountStatus, "active")))
+    .returning(publicUserFields);
+
+  if (!updatedUser) {
+    throw { status: 404, message: "Admin aktif tidak ditemukan", code: "ACTIVE_ADMIN_NOT_FOUND" };
+  }
+
+  return updatedUser;
 };
 
 export const completePasswordChange = async (userId: string, dto: CompletePasswordChangeDTO) => {
@@ -160,6 +304,7 @@ export const completePasswordChange = async (userId: string, dto: CompletePasswo
       email: users.email,
       phone: users.phone,
       role: users.role,
+      accountStatus: users.accountStatus,
       age: users.age,
       gender: users.gender,
       address: users.address,
@@ -212,6 +357,25 @@ export const refreshAccessToken = async (token: string) => {
   return { access_token: accessToken, expires_in: 3600 };
 };
 
+export const getUserProfileByRefreshToken = async (token: string) => {
+  const storedToken = await db
+    .select()
+    .from(refreshTokens)
+    .where(eq(refreshTokens.token, token))
+    .limit(1);
+
+  if (storedToken.length === 0) {
+    throw { status: 401, message: "Token refresh tidak valid", code: "INVALID_TOKEN" };
+  }
+
+  if (new Date() > storedToken[0].expiresAt) {
+    await db.delete(refreshTokens).where(eq(refreshTokens.id, storedToken[0].id));
+    throw { status: 401, message: "Token refresh telah kedaluwarsa", code: "TOKEN_EXPIRED" };
+  }
+
+  return getUserProfile(storedToken[0].userId);
+};
+
 /**
  * Invalidasi refresh token (logout).
  */
@@ -230,11 +394,16 @@ export const getUserProfile = async (userId: string) => {
       email: users.email,
       phone: users.phone,
       role: users.role,
+      accountStatus: users.accountStatus,
       age: users.age,
       gender: users.gender,
       address: users.address,
       isActive: users.isActive,
       mustChangePassword: users.mustChangePassword,
+      approvedBy: users.approvedBy,
+      approvedAt: users.approvedAt,
+      rejectedAt: users.rejectedAt,
+      rejectedReason: users.rejectedReason,
       createdAt: users.createdAt,
     })
     .from(users)

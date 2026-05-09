@@ -2,9 +2,13 @@ import { Response } from "express";
 import { AuthRequest } from "../middleware/auth.middleware";
 import * as authService from "../services/auth.service";
 
+function getParamValue(value: string | string[] | undefined) {
+  return Array.isArray(value) ? value[0] : value;
+}
+
 /**
  * POST /api/auth/register
- * Mendaftarkan akun perawat baru oleh admin.
+ * Mendaftarkan calon admin baru dengan status pending.
  */
 export const register = async (req: AuthRequest, res: Response) => {
   try {
@@ -16,9 +20,10 @@ export const register = async (req: AuthRequest, res: Response) => {
         user_id: newUser.id,
         fullName: newUser.fullName,
         role: newUser.role,
+        accountStatus: newUser.accountStatus,
         created_at: newUser.createdAt,
       },
-      message: "Pendaftaran berhasil",
+      message: "Pendaftaran berhasil. Akun admin menunggu persetujuan Super Admin.",
     });
   } catch (error: unknown) {
     const err = error as { status?: number; message?: string; code?: string };
@@ -51,6 +56,162 @@ export const login = async (req: AuthRequest, res: Response) => {
     
     // console.error("Login Error:", error);
     
+    res.status(status).json({
+      status: "gagal",
+      message: isInternalError ? "Terjadi kesalahan pada server" : (err.message || "Terjadi kesalahan"),
+      ...(err.code && { error_code: err.code }),
+    });
+  }
+};
+
+export const listAdminApprovals = async (_req: AuthRequest, res: Response) => {
+  try {
+    const [users, summary] = await Promise.all([
+      authService.listPendingAdminApprovals(),
+      authService.getAdminApprovalSummary(),
+    ]);
+
+    res.status(200).json({ status: "berhasil", data: { users, summary } });
+  } catch (error: unknown) {
+    const err = error as { status?: number; message?: string; code?: string };
+    const status = err.status || 500;
+    const isInternalError = status === 500;
+
+    res.status(status).json({
+      status: "gagal",
+      message: isInternalError ? "Terjadi kesalahan pada server" : (err.message || "Terjadi kesalahan"),
+      ...(err.code && { error_code: err.code }),
+    });
+  }
+};
+
+export const approveAdminApproval = async (req: AuthRequest, res: Response) => {
+  try {
+    const adminId = getParamValue(req.params.id);
+    if (!adminId) {
+      return res.status(400).json({ status: "gagal", message: "ID admin wajib diisi", error_code: "VALIDATION_ERROR" });
+    }
+
+    const user = await authService.approveAdminApproval(adminId, req.user?.id ?? null);
+
+    res.status(200).json({
+      status: "berhasil",
+      data: { user },
+      message: "Admin berhasil disetujui",
+    });
+  } catch (error: unknown) {
+    const err = error as { status?: number; message?: string; code?: string };
+    const status = err.status || 500;
+    const isInternalError = status === 500;
+
+    res.status(status).json({
+      status: "gagal",
+      message: isInternalError ? "Terjadi kesalahan pada server" : (err.message || "Terjadi kesalahan"),
+      ...(err.code && { error_code: err.code }),
+    });
+  }
+};
+
+export const rejectAdminApproval = async (req: AuthRequest, res: Response) => {
+  try {
+    const adminId = getParamValue(req.params.id);
+    if (!adminId) {
+      return res.status(400).json({ status: "gagal", message: "ID admin wajib diisi", error_code: "VALIDATION_ERROR" });
+    }
+
+    const user = await authService.rejectAdminApproval(adminId, req.body);
+
+    res.status(200).json({
+      status: "berhasil",
+      data: { user },
+      message: "Pengajuan admin berhasil ditolak",
+    });
+  } catch (error: unknown) {
+    const err = error as { status?: number; message?: string; code?: string };
+    const status = err.status || 500;
+    const isInternalError = status === 500;
+
+    res.status(status).json({
+      status: "gagal",
+      message: isInternalError ? "Terjadi kesalahan pada server" : (err.message || "Terjadi kesalahan"),
+      ...(err.code && { error_code: err.code }),
+    });
+  }
+};
+
+export const activateSuspendedAdmin = async (req: AuthRequest, res: Response) => {
+  try {
+    const adminId = getParamValue(req.params.id);
+    if (!adminId) {
+      return res.status(400).json({ status: "gagal", message: "ID admin wajib diisi", error_code: "VALIDATION_ERROR" });
+    }
+
+    const user = await authService.activateSuspendedAdmin(adminId, req.user?.id ?? null);
+
+    res.status(200).json({
+      status: "berhasil",
+      data: { user },
+      message: "Admin berhasil diaktifkan kembali",
+    });
+  } catch (error: unknown) {
+    const err = error as { status?: number; message?: string; code?: string };
+    const status = err.status || 500;
+    const isInternalError = status === 500;
+
+    res.status(status).json({
+      status: "gagal",
+      message: isInternalError ? "Terjadi kesalahan pada server" : (err.message || "Terjadi kesalahan"),
+      ...(err.code && { error_code: err.code }),
+    });
+  }
+};
+
+export const restoreRejectedAdmin = async (req: AuthRequest, res: Response) => {
+  try {
+    const adminId = getParamValue(req.params.id);
+    if (!adminId) {
+      return res.status(400).json({ status: "gagal", message: "ID admin wajib diisi", error_code: "VALIDATION_ERROR" });
+    }
+
+    const user = await authService.restoreRejectedAdmin(adminId);
+
+    res.status(200).json({
+      status: "berhasil",
+      data: { user },
+      message: "Pengajuan admin berhasil dipulihkan",
+    });
+  } catch (error: unknown) {
+    const err = error as { status?: number; message?: string; code?: string };
+    const status = err.status || 500;
+    const isInternalError = status === 500;
+
+    res.status(status).json({
+      status: "gagal",
+      message: isInternalError ? "Terjadi kesalahan pada server" : (err.message || "Terjadi kesalahan"),
+      ...(err.code && { error_code: err.code }),
+    });
+  }
+};
+
+export const suspendActiveAdmin = async (req: AuthRequest, res: Response) => {
+  try {
+    const adminId = getParamValue(req.params.id);
+    if (!adminId) {
+      return res.status(400).json({ status: "gagal", message: "ID admin wajib diisi", error_code: "VALIDATION_ERROR" });
+    }
+
+    const user = await authService.suspendActiveAdmin(adminId);
+
+    res.status(200).json({
+      status: "berhasil",
+      data: { user },
+      message: "Admin berhasil disuspend",
+    });
+  } catch (error: unknown) {
+    const err = error as { status?: number; message?: string; code?: string };
+    const status = err.status || 500;
+    const isInternalError = status === 500;
+
     res.status(status).json({
       status: "gagal",
       message: isInternalError ? "Terjadi kesalahan pada server" : (err.message || "Terjadi kesalahan"),
@@ -97,6 +258,24 @@ export const refresh = async (req: AuthRequest, res: Response) => {
     
     // console.error("Refresh Error:", error);
     
+    res.status(status).json({
+      status: "gagal",
+      message: isInternalError ? "Terjadi kesalahan pada server" : (err.message || "Terjadi kesalahan"),
+      ...(err.code && { error_code: err.code }),
+    });
+  }
+};
+
+export const getStatus = async (req: AuthRequest, res: Response) => {
+  try {
+    const user = await authService.getUserProfileByRefreshToken(req.body.refresh_token);
+
+    res.status(200).json({ status: "berhasil", data: { user } });
+  } catch (error: unknown) {
+    const err = error as { status?: number; message?: string; code?: string };
+    const status = err.status || 500;
+    const isInternalError = status === 500;
+
     res.status(status).json({
       status: "gagal",
       message: isInternalError ? "Terjadi kesalahan pada server" : (err.message || "Terjadi kesalahan"),
