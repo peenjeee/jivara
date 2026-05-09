@@ -6,6 +6,7 @@ interface PatientDashboardState {
   readonly confirmedMedicineIds: readonly string[];
   readonly confirmedScheduleDates: Readonly<Record<string, readonly string[]>>;
   readonly setLastScan: (scan: FoodScanRecord) => void;
+  readonly setConfirmedScheduleDates: (dates: Readonly<Record<string, readonly string[]>>) => void;
   readonly confirmMedicine: (medicineId: string) => void;
   readonly confirmScheduleForDate: (dateKey: string, scheduleId: string) => void;
   readonly resetPatientDashboardState: () => void;
@@ -16,6 +17,7 @@ export const usePatientDashboardStore = create<PatientDashboardState>()((set) =>
   confirmedMedicineIds: [],
   confirmedScheduleDates: {},
   setLastScan: (scan) => set({ lastScan: scan }),
+  setConfirmedScheduleDates: (dates) => set({ confirmedScheduleDates: dates }),
   confirmMedicine: (medicineId) =>
     set((state) => ({
       confirmedMedicineIds: state.confirmedMedicineIds.includes(medicineId)

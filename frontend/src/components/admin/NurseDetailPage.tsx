@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import axios from "axios";
 import { motion } from "motion/react";
 import { AlertTriangle, Check, CheckCheck, Shuffle, Trash2, UserRound } from "lucide-react";
 import DashboardPageHeader from "@/components/dashboard/DashboardPageHeader";
@@ -17,7 +18,10 @@ import { activityMatchesNurse, getAverageAdherence, getNurseByPatientId, getNurs
 import { getDashboardRole, isOperationalAdminRole } from "@/components/dashboard/navigation";
 import { patients } from "@/lib/mocks/patients";
 import type { ActivityLogRecord } from "@/lib/mocks/activityLogs";
-import { showConfirm, showToast, showWarning } from "@/lib/swal";
+import type { PatientRecord } from "@/lib/mocks/patients";
+import { deactivateNurseViaApi } from "@/lib/nurseApi";
+import { assignPatientToNurseViaApi, getPatientsAssignedToNurseFromApi } from "@/lib/patientApi";
+import { showConfirm, showError, showToast, showWarning } from "@/lib/swal";
 import { useActivityLogStore } from "@/store/activityLog";
 import { useNurseStore } from "@/store/nurses";
 import { useAuthStore } from "@/store/auth";
@@ -28,6 +32,11 @@ interface NurseDetailPageProps {
   readonly nurseId: string;
 }
 
+const getApiErrorMessage = (error: unknown) => {
+  if (!axios.isAxiosError(error)) return null;
+  return error.response?.data?.message || null;
+};
+
 export default function NurseDetailPage({ nurseId }: NurseDetailPageProps) {
   const router = useRouter();
   const userRole = useAuthStore((state) => state.user?.role);
@@ -36,16 +45,15 @@ export default function NurseDetailPage({ nurseId }: NurseDetailPageProps) {
   const nurses = useNurseStore((state) => state.nurses);
   const assignments = useNurseStore((state) => state.assignments);
   const reassignPatients = useNurseStore((state) => state.reassignPatients);
-  const deleteNurse = useNurseStore((state) => state.deleteNurse);
   const activities = useActivityLogStore((state) => state.activities);
   const addActivity = useActivityLogStore((state) => state.addActivity);
   const markActivityAsRead = useActivityLogStore((state) => state.markAsRead);
   const nurse = nurses.find((item) => item.id === nurseId);
+  const [assignedPatients, setAssignedPatients] = useState<PatientRecord[]>([]);
   const [selectedPatientIds, setSelectedPatientIds] = useState<string[]>([]);
   const [isReassignOpen, setIsReassignOpen] = useState(false);
   const [selectedActivity, setSelectedActivity] = useState<ActivityLogRecord | null>(null);
 
-  const assignedPatients = useMemo(() => nurse ? getPatientsForNurse(patients, assignments, nurse.id) : [], [assignments, nurse]);
   const nurseActivities = useMemo(() => nurse ? activities.filter((activity) => activityMatchesNurse(activity, assignments, nurse.id)) : [], [activities, assignments, nurse]);
 
   useEffect(() => {
@@ -82,11 +90,20 @@ export default function NurseDetailPage({ nurseId }: NurseDetailPageProps) {
     setSelectedPatientIds((current) => current.length === assignedPatients.length ? [] : assignedPatients.map((patient) => patient.id));
   };
 
-  const handleReassign = (targetNurseId: string) => {
+  const handleReassign = async (targetNurseId: string) => {
     const targetNurse = nurses.find((item) => item.id === targetNurseId);
     if (!targetNurse || selectedPatientIds.length === 0) return;
 
+    try {
+      await Promise.all(selectedPatientIds.map((patientId) => assignPatientToNurseViaApi(patientId, targetNurseId)));
+    } catch (error) {
+      const message = getApiErrorMessage(error);
+      showError(message || "Gagal memindahkan pasien dari API.");
+      return;
+    }
+
     reassignPatients(selectedPatientIds, targetNurseId);
+    setAssignedPatients((currentPatients) => currentPatients.filter((patient) => !selectedPatientIds.includes(patient.id)));
     addActivity({
       id: `ACT-ADM-${Date.now()}`,
       title: "Bulk reassign pasien",
@@ -111,7 +128,15 @@ export default function NurseDetailPage({ nurseId }: NurseDetailPageProps) {
 
     const result = await showConfirm("Hapus perawat?", `Data ${nurse.fullName} akan dihapus dari daftar perawat.`, "Ya, Hapus");
     if (!result.isConfirmed) return;
-    deleteNurse(nurse.id);
+
+    try {
+      await deactivateNurseViaApi(nurse.id);
+    } catch (error) {
+      const message = getApiErrorMessage(error);
+      showError(message || "Gagal menonaktifkan perawat dari API.");
+      return;
+    }
+
     showToast("Perawat berhasil dihapus.");
     router.replace("/nurses");
   };
@@ -188,14 +213,13 @@ export default function NurseDetailPage({ nurseId }: NurseDetailPageProps) {
             </thead>
             <tbody className="divide-y divide-line">
               {assignedPatients.map((patient) => {
-                const currentNurse = getNurseByPatientId(nurses, assignments, patient.id);
                 return (
                   <tr key={patient.id} className="transition-colors hover:bg-surface/60">
                     <td className="px-5 py-4"><SelectionCheckbox label={`Pilih ${patient.name}`} checked={selectedPatientIds.includes(patient.id)} onChange={() => togglePatient(patient.id)} /></td>
                     <td className="px-5 py-4"><Link href={`/patients/${encodeURIComponent(patient.id)}`} className="font-extrabold text-text-main transition-colors hover:text-primary">{patient.name}</Link></td>
                     <td className="px-5 py-4"><PatientStatusBadge status={patient.status} /></td>
                     <td className="px-5 py-4"><AdherenceBar value={patient.adherence} /></td>
-                    <td className="px-5 py-4 text-sm font-bold text-muted">{currentNurse?.fullName ?? "Belum ditugaskan"}</td>
+                    <td className="px-5 py-4 text-sm font-bold text-muted">{nurse.fullName}</td>
                   </tr>
                 );
               })}

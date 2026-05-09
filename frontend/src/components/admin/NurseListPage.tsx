@@ -2,6 +2,7 @@
 
 import { useDeferredValue, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import axios from "axios";
 import { motion } from "motion/react";
 import { Edit3, Eye, Power, Plus, Trash2 } from "lucide-react";
 import DashboardPageHeader from "@/components/dashboard/DashboardPageHeader";
@@ -16,7 +17,8 @@ import { getNurseInitials, getPatientsForNurse } from "@/helpers/nurses";
 import { getDashboardRole, isOperationalAdminRole } from "@/components/dashboard/navigation";
 import { patients } from "@/lib/mocks/patients";
 import type { NurseRecord, NurseStatus } from "@/lib/mocks/nurses";
-import { showConfirm, showToast, showWarning } from "@/lib/swal";
+import { createNurseViaApi, deactivateNurseViaApi, getNursesFromApi, updateNurseViaApi } from "@/lib/nurseApi";
+import { showConfirm, showError, showToast, showWarning } from "@/lib/swal";
 import { useNurseStore, type NurseFormValues } from "@/store/nurses";
 import { useAuthStore } from "@/store/auth";
 import NurseModal from "./NurseModal";
@@ -32,6 +34,11 @@ const filters: { readonly label: string; readonly value: NurseFilter }[] = [
 
 const pageSize = 10;
 
+const getApiErrorMessage = (error: unknown) => {
+  if (!axios.isAxiosError(error)) return null;
+  return error.response?.data?.message || null;
+};
+
 export default function NurseListPage() {
   const router = useRouter();
   const userRole = useAuthStore((state) => state.user?.role);
@@ -39,10 +46,7 @@ export default function NurseListPage() {
   const dashboardRole = getDashboardRole(userRole);
   const nurses = useNurseStore((state) => state.nurses);
   const assignments = useNurseStore((state) => state.assignments);
-  const addNurse = useNurseStore((state) => state.addNurse);
-  const updateNurse = useNurseStore((state) => state.updateNurse);
-  const toggleNurseStatus = useNurseStore((state) => state.toggleNurseStatus);
-  const deleteNurse = useNurseStore((state) => state.deleteNurse);
+  const setNurses = useNurseStore((state) => state.setNurses);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<NurseFilter>("all");
   const [currentPage, setCurrentPage] = useState(1);
@@ -54,6 +58,24 @@ export default function NurseListPage() {
     if (!hasAuthHydrated || isOperationalAdminRole(dashboardRole) || dashboardRole === "nurse") return;
     router.replace("/dashboard");
   }, [dashboardRole, hasAuthHydrated, router]);
+
+  useEffect(() => {
+    if (!hasAuthHydrated || (dashboardRole !== "admin" && dashboardRole !== "nurse")) return;
+
+    let isMounted = true;
+
+    getNursesFromApi()
+      .then((apiNurses) => {
+        if (isMounted) setNurses(apiNurses);
+      })
+      .catch(() => {
+        if (isMounted) setNurses([]);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [dashboardRole, hasAuthHydrated, nurses.length, setNurses]);
 
   const filteredNurses = useMemo(() => {
     const query = deferredSearch.trim().toLowerCase();
@@ -68,15 +90,32 @@ export default function NurseListPage() {
 
   if (!hasAuthHydrated || (dashboardRole !== "nurse" && !isOperationalAdminRole(dashboardRole))) return null;
 
-  const handleAddNurse = (values: NurseFormValues) => {
-    addNurse(values);
+  const handleAddNurse = async (values: NurseFormValues) => {
+    try {
+      const createdNurse = await createNurseViaApi(values);
+      setNurses([createdNurse, ...nurses]);
+    } catch (error) {
+      const message = getApiErrorMessage(error);
+      showError(message || "Gagal menambahkan perawat dari API.");
+      return;
+    }
+
     setIsModalOpen(false);
     showToast("Perawat berhasil ditambahkan.", "success");
   };
 
-  const handleEditNurse = (values: NurseFormValues) => {
+  const handleEditNurse = async (values: NurseFormValues) => {
     if (!editingNurse) return;
-    updateNurse(editingNurse.id, values);
+
+    try {
+      const updatedNurse = await updateNurseViaApi(editingNurse.id, values);
+      setNurses(nurses.map((nurse) => nurse.id === editingNurse.id ? { ...updatedNurse, temporaryPassword: values.password ? true : nurse.temporaryPassword } : nurse));
+    } catch (error) {
+      const message = getApiErrorMessage(error);
+      showError(message || "Gagal memperbarui perawat dari API.");
+      return;
+    }
+
     setEditingNurse(null);
     showToast("Data perawat berhasil diperbarui.");
   };
@@ -85,7 +124,23 @@ export default function NurseListPage() {
     const nextStatus = nurse.status === "Aktif" ? "Nonaktif" : "Aktif";
     const result = await showConfirm(`${nextStatus}kan perawat?`, `${nurse.fullName} akan berubah status menjadi ${nextStatus}.`, `Ya, ${nextStatus}kan`);
     if (!result.isConfirmed) return;
-    toggleNurseStatus(nurse.id);
+
+    try {
+      const updatedNurse = await updateNurseViaApi(nurse.id, {
+        fullName: nurse.fullName,
+        email: nurse.email,
+        phone: nurse.phone,
+        gender: nurse.gender,
+        status: nextStatus,
+        password: "",
+      });
+      setNurses(nurses.map((item) => item.id === nurse.id ? { ...updatedNurse, temporaryPassword: item.temporaryPassword } : item));
+    } catch (error) {
+      const message = getApiErrorMessage(error);
+      showError(message || "Gagal mengubah status perawat dari API.");
+      return;
+    }
+
     showToast(`Status perawat menjadi ${nextStatus}.`);
   };
 
@@ -98,7 +153,16 @@ export default function NurseListPage() {
 
     const result = await showConfirm("Hapus perawat?", `Data ${nurse.fullName} akan dihapus dari daftar perawat.`, "Ya, Hapus");
     if (!result.isConfirmed) return;
-    deleteNurse(nurse.id);
+
+    try {
+      await deactivateNurseViaApi(nurse.id);
+      setNurses(nurses.map((item) => item.id === nurse.id ? { ...item, status: "Nonaktif" } : item));
+    } catch (error) {
+      const message = getApiErrorMessage(error);
+      showError(message || "Gagal menonaktifkan perawat dari API.");
+      return;
+    }
+
     showToast("Perawat berhasil dihapus.");
   };
 

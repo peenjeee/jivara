@@ -1,6 +1,6 @@
 "use client";
 
-import { useDeferredValue, useMemo, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "motion/react";
 import { AlertTriangle, Bell, CheckCheck, ClipboardList } from "lucide-react";
@@ -11,6 +11,8 @@ import SummaryCardGrid from "@/components/ui/SummaryCardGrid";
 import { FoodScanDetailModal } from "@/components/food-scan";
 import { getActivityDateKey } from "@/helpers/activityLogs";
 import { activityMatchesNurse } from "@/helpers/nurses";
+import { getAlertActivitiesFromApi, resolveAlertViaApi } from "@/lib/alertsApi";
+import { getAuditActivitiesFromApi } from "@/lib/auditLogApi";
 import type { ActivityCategory, ActivityLogRecord } from "@/lib/mocks/activityLogs";
 import { showToast } from "@/lib/swal";
 import { useActivityLogStore } from "@/store/activityLog";
@@ -30,6 +32,7 @@ interface ActivityLogPageProps {
 export default function ActivityLogPage({ initialPatientName = "", initialCategory, readOnly = false }: ActivityLogPageProps) {
   const router = useRouter();
   const activities = useActivityLogStore((state) => state.activities);
+  const setActivities = useActivityLogStore((state) => state.setActivities);
   const nurses = useNurseStore((state) => state.nurses);
   const assignments = useNurseStore((state) => state.assignments);
   const markActivityAsRead = useActivityLogStore((state) => state.markAsRead);
@@ -43,6 +46,26 @@ export default function ActivityLogPage({ initialPatientName = "", initialCatego
   const [selectedActivity, setSelectedActivity] = useState<ActivityLogRecord | null>(null);
   const [selectedFoodScanId, setSelectedFoodScanId] = useState<string | null>(null);
   const deferredSearch = useDeferredValue(search);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const activityRequest = readOnly
+      ? Promise.all([getAuditActivitiesFromApi(), getAlertActivitiesFromApi()]).then(([auditActivities, alertActivities]) => [...alertActivities, ...auditActivities])
+      : getAlertActivitiesFromApi();
+
+    activityRequest
+      .then((nextActivities) => {
+        if (isMounted) setActivities(nextActivities);
+      })
+      .catch(() => {
+        if (isMounted) setActivities([]);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [readOnly, setActivities]);
 
   const todayKey = new Date().toISOString().slice(0, 10);
 
@@ -119,6 +142,9 @@ export default function ActivityLogPage({ initialPatientName = "", initialCatego
 
   const markAllAsRead = () => {
     if (readOnly) return;
+    filteredActivities.forEach((activity) => {
+      if (activity.category === "Kepatuhan") resolveAlertViaApi(activity.id).catch(() => { });
+    });
     markAllActivitiesAsRead();
     showToast("Semua aktivitas ditandai sudah dibaca.");
   };

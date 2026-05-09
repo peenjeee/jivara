@@ -1,19 +1,19 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useDeferredValue, useMemo, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useState } from "react";
 import { motion } from "motion/react";
 import { Plus } from "lucide-react";
 import DashboardPageHeader from "@/components/dashboard/DashboardPageHeader";
 import DashboardPageShell from "@/components/dashboard/DashboardPageShell";
 import Button from "@/components/ui/Button";
-import { getNextPatientOrder } from "@/helpers/patients";
 import { getNurseByPatientId } from "@/helpers/nurses";
-import { patients as initialPatients, type PatientRecord } from "@/lib/mocks/patients";
-import { showConfirm, showToast } from "@/lib/swal";
+import type { PatientRecord } from "@/lib/mocks/patients";
+import { createPatientViaApi, deactivatePatientViaApi, getPatientsFromApi, updatePatientViaApi } from "@/lib/patientApi";
+import { showConfirm, showError, showToast } from "@/lib/swal";
 import { useNurseStore } from "@/store/nurses";
 import AddPatientModal from "./AddPatientModal";
-import { createPatientRecord, type AddPatientValues } from "./AddPatientForm";
+import type { AddPatientValues } from "./AddPatientForm";
 import type { PatientAction } from "./PatientActions";
 import PatientPagination from "./PatientPagination";
 import PatientTable from "./PatientTable";
@@ -29,13 +29,29 @@ export default function PatientListPage({ mode = "manage" }: PatientListPageProp
   const router = useRouter();
   const nurses = useNurseStore((state) => state.nurses);
   const assignments = useNurseStore((state) => state.assignments);
-  const [patientRecords, setPatientRecords] = useState(initialPatients);
+  const [patientRecords, setPatientRecords] = useState<PatientRecord[]>([]);
   const [search, setSearch] = useState("");
   const [activeFilter, setActiveFilter] = useState<PatientFilter>("all");
   const [currentPage, setCurrentPage] = useState(1);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingPatient, setEditingPatient] = useState<PatientRecord | null>(null);
   const deferredSearch = useDeferredValue(search);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    getPatientsFromApi()
+      .then((patients) => {
+        if (isMounted) setPatientRecords(patients);
+      })
+      .catch(() => {
+        if (isMounted) setPatientRecords([]);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const filteredPatients = useMemo(() => {
     const query = deferredSearch.trim().toLowerCase();
@@ -67,8 +83,15 @@ export default function PatientListPage({ mode = "manage" }: PatientListPageProp
     setCurrentPage(1);
   };
 
-  const handleAddPatient = (values: AddPatientValues) => {
-    setPatientRecords((currentPatients) => [createPatientRecord(values, getNextPatientOrder(currentPatients)), ...currentPatients]);
+  const handleAddPatient = async (values: AddPatientValues) => {
+    try {
+      const createdPatient = await createPatientViaApi(values);
+      setPatientRecords((currentPatients) => [createdPatient, ...currentPatients]);
+    } catch {
+      showError("Gagal menambahkan pasien dari API.");
+      return;
+    }
+
     setIsAddModalOpen(false);
     setSearch("");
     setActiveFilter("all");
@@ -76,24 +99,17 @@ export default function PatientListPage({ mode = "manage" }: PatientListPageProp
     showToast("Pasien berhasil ditambahkan.", "success");
   };
 
-  const handleEditPatient = (values: AddPatientValues) => {
+  const handleEditPatient = async (values: AddPatientValues) => {
     if (!editingPatient) return;
 
-    setPatientRecords((currentPatients) =>
-      currentPatients.map((patient) =>
-        patient.id === editingPatient.id
-          ? {
-              ...patient,
-              name: values.fullName,
-              age: values.age,
-              gender: values.gender,
-              phone: values.phone,
-              email: values.email,
-              address: values.address,
-            }
-          : patient,
-      ),
-    );
+    try {
+      const updatedPatient = await updatePatientViaApi(editingPatient.id, values);
+      setPatientRecords((currentPatients) => currentPatients.map((patient) => patient.id === editingPatient.id ? updatedPatient : patient));
+    } catch {
+      showError("Gagal memperbarui pasien dari API.");
+      return;
+    }
+
     setEditingPatient(null);
     showToast("Data pasien berhasil diperbarui.");
   };
@@ -111,7 +127,14 @@ export default function PatientListPage({ mode = "manage" }: PatientListPageProp
       const result = await showConfirm("Hapus pasien?", `Data ${patient.name} akan dihapus dari daftar pasien.`, "Ya, Hapus");
 
       if (result.isConfirmed) {
-        setPatientRecords((currentPatients) => currentPatients.filter((currentPatient) => currentPatient.id !== patient.id));
+        try {
+          await deactivatePatientViaApi(patient.id);
+          setPatientRecords((currentPatients) => currentPatients.filter((currentPatient) => currentPatient.id !== patient.id));
+        } catch {
+          showError("Gagal menghapus pasien dari API.");
+          return;
+        }
+
         showToast("Pasien berhasil dihapus.");
       }
     }

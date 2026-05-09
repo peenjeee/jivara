@@ -2,10 +2,10 @@ import api from "@/lib/axios";
 import type { FoodScanAnalysis } from "@/helpers/foodScans";
 import type { FoodScanRecord, FoodScanRisk } from "@/lib/mocks/foodScans";
 import type { MedicationScheduleRecord } from "@/lib/mocks/schedules";
-import { patients } from "@/lib/mocks/patients";
 
 interface PatientResponse {
   id: string;
+  fullName?: string | null;
 }
 
 interface UploadResponse {
@@ -43,14 +43,14 @@ interface InteractionResponse {
   disclaimer: string;
 }
 
-const mockPatient = patients[0];
+const getInitials = (name?: string | null) => name?.split(" ").filter(Boolean).slice(0, 2).map((part) => part[0]).join("").toUpperCase() || "PX";
 
 const getBackendOrigin = () => {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
   return apiUrl.replace(/\/api\/?$/, "");
 };
 
-const getPatientId = async () => {
+const getPatient = async () => {
   const response = await api.get<{ data: PatientResponse[] }>("/patients", { params: { limit: 1 } });
   const patient = response.data.data[0];
 
@@ -58,7 +58,7 @@ const getPatientId = async () => {
     throw new Error("Data pasien tidak ditemukan untuk scan makanan.");
   }
 
-  return patient.id;
+  return patient;
 };
 
 const toFoodName = (items: DetectedItemResponse[]) => {
@@ -71,11 +71,11 @@ const toRisk = (riskLevel: string): FoodScanRisk => {
   return "Low Risk";
 };
 
-const createSchedule = (interaction: InteractionResponse["interactions"][number], patientId: string, index: number): MedicationScheduleRecord => ({
+const createSchedule = (interaction: InteractionResponse["interactions"][number], patient: PatientResponse, index: number): MedicationScheduleRecord => ({
   id: `API-FOOD-INTERACTION-${index}`,
-  patientId,
-  patientName: mockPatient.name,
-  patientAvatar: mockPatient.avatar,
+  patientId: patient.id,
+  patientName: patient.fullName || "Pasien",
+  patientAvatar: getInitials(patient.fullName),
   medicineName: interaction.medication,
   dose: "-",
   medicineForm: "Tablet",
@@ -89,7 +89,8 @@ const createSchedule = (interaction: InteractionResponse["interactions"][number]
 });
 
 export const scanFoodImage = async (file: File): Promise<FoodScanAnalysis> => {
-  const patientId = await getPatientId();
+  const patient = await getPatient();
+  const patientId = patient.id;
   const formData = new FormData();
   formData.append("patientId", patientId);
   formData.append("image", file);
@@ -123,7 +124,7 @@ export const scanFoodImage = async (file: File): Promise<FoodScanAnalysis> => {
   const foodName = toFoodName(detection.detected_items);
   const scan: FoodScanRecord = {
     id: upload.image_id,
-    patientId: mockPatient.id,
+    patientId,
     foodName,
     image,
     scannedAt: upload.timestamp,
@@ -133,7 +134,7 @@ export const scanFoodImage = async (file: File): Promise<FoodScanAnalysis> => {
     recommendation: interactionData.overall_recommendation || interactionData.disclaimer,
   };
   const interactions = interactionData.interactions.map((interaction, index) => ({
-    schedule: createSchedule(interaction, scan.patientId, index),
+    schedule: createSchedule(interaction, patient, index),
     risk: risk,
     reasoning: interaction.interaction_description,
     recommendation: interaction.recommendation,

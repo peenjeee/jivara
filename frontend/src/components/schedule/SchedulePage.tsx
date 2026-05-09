@@ -8,15 +8,17 @@ import DashboardPageShell from "@/components/dashboard/DashboardPageShell";
 import Button from "@/components/ui/Button";
 import PatientPagination from "@/components/patients/PatientPagination";
 import SummaryCardGrid from "@/components/ui/SummaryCardGrid";
-import { getNextScheduleOrder, groupSchedulesByPatient } from "@/helpers/schedules";
-import { patients } from "@/lib/mocks/patients";
-import { medicationSchedules as initialSchedules, type MedicationScheduleRecord } from "@/lib/mocks/schedules";
-import { showConfirm, showToast } from "@/lib/swal";
+import { groupSchedulesByPatient } from "@/helpers/schedules";
+import { getPatientsFromApi } from "@/lib/patientApi";
+import type { PatientRecord } from "@/lib/mocks/patients";
+import type { MedicationScheduleRecord } from "@/lib/mocks/schedules";
+import { createSchedulesViaApi, deactivateScheduleViaApi, getSchedulesFromApi, setScheduleActiveViaApi, updateScheduleViaApi } from "@/lib/scheduleApi";
+import { showConfirm, showError, showToast } from "@/lib/swal";
 import ScheduleDetailModal from "./ScheduleDetailModal";
 import ScheduleModal from "./ScheduleModal";
 import ScheduleTable from "./ScheduleTable";
 import ScheduleToolbar, { type ScheduleFilter } from "./ScheduleToolbar";
-import { createScheduleRecord, getEmptyScheduleFormValues, getScheduleFormValues, type ScheduleFormValues, updateScheduleRecord } from "./ScheduleForm";
+import { getEmptyScheduleFormValues, getScheduleFormValues, type ScheduleFormValues } from "./ScheduleForm";
 import type { ScheduleAction } from "./ScheduleActions";
 
 const pageSize = 10;
@@ -27,7 +29,8 @@ interface SchedulePageProps {
 
 export default function SchedulePage({ initialPatientName = "", readOnly = false }: SchedulePageProps) {
   const linkedPatientName = initialPatientName.trim().toLowerCase();
-  const [schedules, setSchedules] = useState(initialSchedules);
+  const [schedules, setSchedules] = useState<MedicationScheduleRecord[]>([]);
+  const [patients, setPatients] = useState<PatientRecord[]>([]);
   const [search, setSearch] = useState("");
   const [activeFilter, setActiveFilter] = useState<ScheduleFilter>("all");
   const [currentPage, setCurrentPage] = useState(1);
@@ -37,6 +40,28 @@ export default function SchedulePage({ initialPatientName = "", readOnly = false
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
   const [returnToDetailPatientId, setReturnToDetailPatientId] = useState<string | null>(null);
   const deferredSearch = useDeferredValue(search);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    Promise.all([getSchedulesFromApi(), getPatientsFromApi()])
+      .then(([apiSchedules, apiPatients]) => {
+        if (isMounted) {
+          setSchedules(apiSchedules);
+          setPatients(apiPatients);
+        }
+      })
+      .catch(() => {
+        if (isMounted) {
+          setSchedules([]);
+          setPatients([]);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const summaryStats = useMemo(() => {
     const active = schedules.filter((schedule) => schedule.status === "Aktif").length;
@@ -52,12 +77,10 @@ export default function SchedulePage({ initialPatientName = "", readOnly = false
 
   const filteredSchedules = useMemo(() => {
     const query = deferredSearch.trim().toLowerCase();
-    const patientStatusById = Object.fromEntries(patients.map((patient) => [patient.id, patient.status]));
-
     return schedules.filter((schedule) => {
       const matchesSearch = !query || [schedule.patientName, schedule.medicineName, schedule.dose, schedule.frequency, schedule.instructions ?? ""]
         .some((value) => value.toLowerCase().includes(query));
-      const matchesFilter = activeFilter === "all" || patientStatusById[schedule.patientId] === activeFilter;
+      const matchesFilter = activeFilter === "all";
 
       return matchesSearch && matchesFilter;
     });
@@ -77,12 +100,12 @@ export default function SchedulePage({ initialPatientName = "", readOnly = false
   useEffect(() => {
     if (!linkedPatientName) return;
 
-    const linkedPatientId = initialSchedules.find((schedule) => schedule.patientName.toLowerCase() === linkedPatientName)?.patientId;
+    const linkedPatientId = schedules.find((schedule) => schedule.patientName.toLowerCase() === linkedPatientName)?.patientId;
     if (!linkedPatientId) return;
 
     const openTimer = window.setTimeout(() => setSelectedPatientId(linkedPatientId), 420);
     return () => window.clearTimeout(openTimer);
-  }, [linkedPatientName]);
+  }, [linkedPatientName, schedules]);
 
   const handleSearchChange = (value: string) => {
     setSearch(value);
@@ -100,12 +123,15 @@ export default function SchedulePage({ initialPatientName = "", readOnly = false
     setCurrentPage(1);
   };
 
-  const handleAddSchedule = (values: ScheduleFormValues) => {
-    setSchedules((currentSchedules) => {
-      const nextOrder = getNextScheduleOrder(currentSchedules);
-      const createdSchedules = values.medicines.map((medicine, index) => createScheduleRecord(values.patientId, medicine, patients, nextOrder + index));
-      return [...createdSchedules, ...currentSchedules];
-    });
+  const handleAddSchedule = async (values: ScheduleFormValues) => {
+    try {
+      const createdSchedules = await createSchedulesViaApi(values.patientId, values.medicines, patients);
+      setSchedules((currentSchedules) => [...createdSchedules, ...currentSchedules]);
+    } catch {
+      showError("Gagal menambahkan jadwal obat dari API.");
+      return;
+    }
+
     setIsAddModalOpen(false);
     setAddMedicinePatientId(null);
     setSearch("");
@@ -114,12 +140,19 @@ export default function SchedulePage({ initialPatientName = "", readOnly = false
     showToast(values.medicines.length > 1 ? "Beberapa jadwal obat berhasil ditambahkan." : "Jadwal obat berhasil ditambahkan.");
   };
 
-  const handleEditSchedule = (values: ScheduleFormValues) => {
+  const handleEditSchedule = async (values: ScheduleFormValues) => {
     if (!editingSchedule) return;
     const [medicine] = values.medicines;
     if (!medicine) return;
 
-    setSchedules((currentSchedules) => currentSchedules.map((schedule) => schedule.id === editingSchedule.id ? updateScheduleRecord(schedule, medicine, patients, values.patientId) : schedule));
+    try {
+      const updatedSchedule = await updateScheduleViaApi(editingSchedule.id, values.patientId, medicine, patients);
+      setSchedules((currentSchedules) => currentSchedules.map((schedule) => schedule.id === editingSchedule.id ? updatedSchedule : schedule));
+    } catch {
+      showError("Gagal memperbarui jadwal obat dari API.");
+      return;
+    }
+
     setEditingSchedule(null);
     setSelectedPatientId(returnToDetailPatientId);
     setReturnToDetailPatientId(null);
@@ -137,25 +170,14 @@ export default function SchedulePage({ initialPatientName = "", readOnly = false
     }
 
     if (action === "toggle") {
-      setSchedules((currentSchedules) =>
-        currentSchedules.map((currentSchedule) => {
-          if (currentSchedule.id !== schedule.id) return currentSchedule;
+      try {
+        const updatedSchedule = await setScheduleActiveViaApi(schedule, schedule.status === "Nonaktif", patients);
+        setSchedules((currentSchedules) => currentSchedules.map((currentSchedule) => currentSchedule.id === schedule.id ? updatedSchedule : currentSchedule));
+      } catch {
+        showError("Gagal mengubah status jadwal obat dari API.");
+        return;
+      }
 
-          if (currentSchedule.status === "Nonaktif") {
-            return {
-              ...currentSchedule,
-              status: currentSchedule.previousStatus ?? "Aktif",
-              previousStatus: undefined,
-            };
-          }
-
-          return {
-            ...currentSchedule,
-            previousStatus: currentSchedule.status,
-            status: "Nonaktif",
-          };
-        }),
-      );
       showToast(schedule.status === "Nonaktif" ? "Jadwal berhasil diaktifkan." : "Jadwal berhasil dinonaktifkan.");
       return;
     }
@@ -164,7 +186,14 @@ export default function SchedulePage({ initialPatientName = "", readOnly = false
       const result = await showConfirm("Hapus jadwal obat?", `Jadwal ${schedule.medicineName} untuk ${schedule.patientName} akan dihapus.`, "Ya, Hapus");
 
       if (result.isConfirmed) {
-        setSchedules((currentSchedules) => currentSchedules.filter((currentSchedule) => currentSchedule.id !== schedule.id));
+        try {
+          await deactivateScheduleViaApi(schedule.id);
+          setSchedules((currentSchedules) => currentSchedules.filter((currentSchedule) => currentSchedule.id !== schedule.id));
+        } catch {
+          showError("Gagal menghapus jadwal obat dari API.");
+          return;
+        }
+
         showToast("Jadwal obat berhasil dihapus.");
       }
     }

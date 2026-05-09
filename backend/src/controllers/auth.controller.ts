@@ -8,7 +8,7 @@ function getParamValue(value: string | string[] | undefined) {
 
 /**
  * POST /api/auth/register
- * Mendaftarkan calon admin baru dengan status pending.
+ * Mendaftarkan akun perawat baru oleh admin.
  */
 export const register = async (req: AuthRequest, res: Response) => {
   try {
@@ -20,10 +20,9 @@ export const register = async (req: AuthRequest, res: Response) => {
         user_id: newUser.id,
         fullName: newUser.fullName,
         role: newUser.role,
-        accountStatus: newUser.accountStatus,
         created_at: newUser.createdAt,
       },
-      message: "Pendaftaran berhasil. Akun admin menunggu persetujuan Super Admin.",
+      message: "Pendaftaran berhasil",
     });
   } catch (error: unknown) {
     const err = error as { status?: number; message?: string; code?: string };
@@ -215,6 +214,58 @@ export const suspendActiveAdmin = async (req: AuthRequest, res: Response) => {
     res.status(status).json({
       status: "gagal",
       message: isInternalError ? "Terjadi kesalahan pada server" : (err.message || "Terjadi kesalahan"),
+      ...(err.code && { error_code: err.code }),
+    });
+  }
+};
+
+export const listPendingRegistrations = async (req: AuthRequest, res: Response) => {
+  try {
+    const data = await authService.listPendingRegistrations();
+    res.status(200).json({ status: "berhasil", data });
+  } catch (error: unknown) {
+    const err = error as { status?: number; message?: string; code?: string };
+    const status = err.status || 500;
+
+    res.status(status).json({
+      status: "gagal",
+      message: status === 500 ? "Terjadi kesalahan pada server" : (err.message || "Terjadi kesalahan"),
+      ...(err.code && { error_code: err.code }),
+    });
+  }
+};
+
+export const approveRegistration = async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+    const data = await authService.approveRegistration(userId, req.user?.id);
+
+    res.status(200).json({ status: "berhasil", data, message: "Registrasi pengguna berhasil disetujui" });
+  } catch (error: unknown) {
+    const err = error as { status?: number; message?: string; code?: string };
+    const status = err.status || 500;
+
+    res.status(status).json({
+      status: "gagal",
+      message: status === 500 ? "Terjadi kesalahan pada server" : (err.message || "Terjadi kesalahan"),
+      ...(err.code && { error_code: err.code }),
+    });
+  }
+};
+
+export const rejectRegistration = async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+    const data = await authService.rejectRegistration(userId, req.user?.id);
+
+    res.status(200).json({ status: "berhasil", data, message: "Registrasi pengguna berhasil ditolak" });
+  } catch (error: unknown) {
+    const err = error as { status?: number; message?: string; code?: string };
+    const status = err.status || 500;
+
+    res.status(status).json({
+      status: "gagal",
+      message: status === 500 ? "Terjadi kesalahan pada server" : (err.message || "Terjadi kesalahan"),
       ...(err.code && { error_code: err.code }),
     });
   }

@@ -1,15 +1,17 @@
 import { create } from "zustand";
-import { activityLogs as initialActivityLogs, type ActivityLogRecord } from "@/lib/mocks/activityLogs";
+import type { ActivityLogRecord } from "@/lib/mocks/activityLogs";
 
 interface ActivityLogState {
   readonly activities: ActivityLogRecord[];
+  readonly setActivities: (activities: ActivityLogRecord[]) => void;
   readonly addActivity: (activity: ActivityLogRecord) => void;
   readonly markAsRead: (activityId: string) => void;
   readonly markAllAsRead: () => void;
 }
 
 export const useActivityLogStore = create<ActivityLogState>()((set) => ({
-  activities: initialActivityLogs,
+  activities: [],
+  setActivities: (activities) => set({ activities }),
   addActivity: (activity) => set((state) => ({
     activities: [activity, ...state.activities],
   })),

@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { getNextNurseId } from "@/helpers/nurses";
-import { nurses as initialNurses, patientNurseAssignments, type NurseGender, type NurseRecord, type NurseStatus, type PatientNurseAssignment } from "@/lib/mocks/nurses";
+import type { NurseGender, NurseRecord, NurseStatus, PatientNurseAssignment } from "@/lib/mocks/nurses";
 
 export interface NurseFormValues {
   readonly fullName: string;
@@ -14,6 +14,7 @@ export interface NurseFormValues {
 interface NurseStoreState {
   readonly nurses: NurseRecord[];
   readonly assignments: PatientNurseAssignment;
+  readonly setNurses: (nurses: NurseRecord[]) => void;
   readonly addNurse: (values: NurseFormValues) => NurseRecord;
   readonly updateNurse: (nurseId: string, values: NurseFormValues) => void;
   readonly toggleNurseStatus: (nurseId: string) => void;
@@ -24,8 +25,9 @@ interface NurseStoreState {
 const formatJoinedAt = () => new Date().toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" });
 
 export const useNurseStore = create<NurseStoreState>()((set, get) => ({
-  nurses: initialNurses,
-  assignments: patientNurseAssignments,
+  nurses: [],
+  assignments: {},
+  setNurses: (nurses) => set({ nurses }),
   addNurse: (values) => {
     const nurse: NurseRecord = {
       id: getNextNurseId(get().nurses),
