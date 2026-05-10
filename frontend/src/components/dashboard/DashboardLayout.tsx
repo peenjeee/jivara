@@ -21,6 +21,9 @@ interface DashboardLayoutProps {
   readonly children: ReactNode;
 }
 
+/** Batas waktu maksimal untuk loading state (detik) */
+const MAX_LOADING_SECONDS = 12;
+
 function getFallbackPathForRole(role?: string) {
   return role === "super_admin" ? "/admin-approvals" : "/dashboard";
 }
@@ -41,13 +44,11 @@ function isPathAllowedForRole(pathname: string, role?: string) {
 }
 
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
-  const { logout, user, hasHydrated, setAuth, updateUser } = useAuthStore();
+  const { logout, user, hasHydrated, setAuth, setHasHydrated, updateUser } = useAuthStore();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
-  const [isCheckingAccount, setIsCheckingAccount] = useState(false);
   const [isRestoringSession, setIsRestoringSession] = useState(false);
   const isSyncingRef = useRef(false);
   const hasTriedSessionRestoreRef = useRef(false);
-  const hasBlockedInitialAccountCheckRef = useRef(false);
   const isNavigatingAwayRef = useRef(false);
   const isStandalonePwa = useIsStandalonePwa();
   const pathname = usePathname();
@@ -94,18 +95,14 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       });
   }, [logout]);
 
-  const syncCurrentUser = useCallback(async (blockRender = false) => {
+  /** Sync status akun admin — jalan di background, TIDAK block render */
+  const syncCurrentUser = useCallback(async () => {
     if (!hasHydrated || isLoggingOut || isNavigatingAwayRef.current) return;
 
-    if (userRole !== "admin") {
-      setIsCheckingAccount(false);
-      return;
-    }
+    if (userRole !== "admin") return;
 
     if (isSyncingRef.current) return;
     isSyncingRef.current = true;
-
-    if (blockRender) setIsCheckingAccount(true);
 
     try {
       const response = await axios.post("/api/auth/status", undefined, { timeout: 8000 });
@@ -127,18 +124,46 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       }
     } finally {
       isSyncingRef.current = false;
-      if (blockRender) setIsCheckingAccount(false);
     }
   }, [hasHydrated, isLoggingOut, router, updateUser, userRole, navigateToLogin]);
 
-  // Effect 1: Sync status akun admin secara berkala
+  // Safety: pastikan hasHydrated jadi true dalam 3 detik
+  // Di PWA, localStorage bisa corrupt/stale yang mencegah onRehydrateStorage fire
+  useEffect(() => {
+    if (hasHydrated) return;
+    const timer = window.setTimeout(() => {
+      if (!useAuthStore.getState().hasHydrated) {
+        setHasHydrated(true);
+      }
+    }, 3000);
+    return () => window.clearTimeout(timer);
+  }, [hasHydrated, setHasHydrated]);
+
+  // Safety: jika loading terlalu lama, paksa redirect ke login
+  useEffect(() => {
+    if (user && hasHydrated) return; // sudah ready, tidak perlu timeout
+    if (isNavigatingAwayRef.current) return;
+
+    const timer = window.setTimeout(() => {
+      if (isNavigatingAwayRef.current) return;
+      // Masih loading setelah MAX_LOADING_SECONDS → paksa ke login
+      const state = useAuthStore.getState();
+      if (!state.user) {
+        navigateToLogin();
+      }
+    }, MAX_LOADING_SECONDS * 1000);
+    return () => window.clearTimeout(timer);
+  }, [user, hasHydrated, navigateToLogin]);
+
+  // Sync status akun admin secara berkala (background, tanpa block render)
   useEffect(() => {
     if (!hasHydrated || !userRole || isNavigatingAwayRef.current) return;
 
-    if (userRole === "admin" && !hasBlockedInitialAccountCheckRef.current) {
-      hasBlockedInitialAccountCheckRef.current = true;
-      void Promise.resolve().then(() => syncCurrentUser(true));
+    if (userRole === "admin") {
+      // Initial check di background
+      void syncCurrentUser();
     }
+
     const intervalId = window.setInterval(() => {
       void syncCurrentUser();
     }, 15000);
@@ -160,7 +185,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     };
   }, [hasHydrated, syncCurrentUser, userRole]);
 
-  // Effect 2: Session restore jika user null
+  // Session restore jika user null
   useEffect(() => {
     if (!hasHydrated || isLoggingOut || isNavigatingAwayRef.current) return;
 
@@ -233,9 +258,11 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     );
   }
 
-  if (!hasHydrated || !user || isCheckingAccount || isRestoringSession) {
+  // Render gate: hanya block untuk hydration dan session restore
+  // isCheckingAccount DIHAPUS dari sini — sync admin jalan di background
+  if (!hasHydrated || !user || isRestoringSession) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-surface" aria-label="Memeriksa status akun">
+      <div className="flex min-h-screen items-center justify-center bg-surface" aria-label="Memuat halaman">
         <div className="flex flex-col items-center space-y-4">
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
           <p className="text-sm font-medium text-text-secondary">
