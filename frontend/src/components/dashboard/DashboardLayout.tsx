@@ -81,21 +81,22 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   };
 
   /** Navigasi keluar dengan hard redirect, cegah semua operasi lanjutan */
-  const navigateToLogin = useCallback(() => {
+  const navigateToLogin = useCallback(async () => {
     if (isNavigatingAwayRef.current) return;
     isNavigatingAwayRef.current = true;
     logout();
     window.localStorage.removeItem("jivara-auth-storage");
 
-    // Hapus cookies via API — fire and forget, JANGAN tunggu
-    axios.post("/api/auth/logout", undefined, { timeout: 2000 }).catch(() => {});
+    // HARUS tunggu API hapus httpOnly cookies SEBELUM redirect
+    // Kalau tidak, server-side layout masih lihat cookie → mount dashboard lagi → LOOP
+    try {
+      await axios.post("/api/auth/logout", undefined, { timeout: 2000 });
+    } catch {
+      // Gagal pun tetap redirect — worst case loop sekali lagi
+    }
 
-    // Redirect LANGSUNG — tidak tunggu API, dengan fallback berlapis
+    // Baru redirect SETELAH cookies dihapus
     window.location.href = "/login";
-    // Fallback 1: jika href gagal, coba replace setelah 500ms
-    setTimeout(() => { window.location.replace("/login"); }, 500);
-    // Fallback 2: jika masih stuck, coba assign setelah 1.5s
-    setTimeout(() => { window.location.assign("/login"); }, 1500);
   }, [logout]);
 
   /** Sync status akun admin — jalan di background, TIDAK block render */
@@ -147,15 +148,17 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     if (user && hasHydrated) return; // sudah ready, tidak perlu timeout
     if (isNavigatingAwayRef.current) return;
 
-    const timer = window.setTimeout(() => {
+    const timer = window.setTimeout(async () => {
       // Masih loading setelah MAX_LOADING_SECONDS → langsung redirect
       // Tidak pakai navigateToLogin karena bisa ada state yang block
       logout();
       window.localStorage.removeItem("jivara-auth-storage");
-      axios.post("/api/auth/logout", undefined, { timeout: 2000 }).catch(() => {});
+      try {
+        await axios.post("/api/auth/logout", undefined, { timeout: 2000 });
+      } catch {
+        // Gagal pun tetap redirect
+      }
       window.location.href = "/login";
-      setTimeout(() => { window.location.replace("/login"); }, 500);
-      setTimeout(() => { window.location.assign("/login"); }, 1500);
     }, MAX_LOADING_SECONDS * 1000);
     return () => window.clearTimeout(timer);
   }, [user, hasHydrated, logout]);
