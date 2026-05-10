@@ -8,7 +8,7 @@ import axios from "axios";
 import { LogOut } from "lucide-react";
 import { SimpleFooter } from "@/components/landing/Footer";
 import ForcePasswordChangeModal from "@/components/auth/ForcePasswordChangeModal";
-import { showConfirm, showToast } from "@/lib/swal";
+import { showConfirm } from "@/lib/swal";
 import { useAuthStore } from "@/store/auth";
 import type { User } from "@/types/auth";
 import { useIsStandalonePwa } from "@/hooks";
@@ -87,16 +87,12 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     logout();
     window.localStorage.removeItem("jivara-auth-storage");
 
-    // HARUS tunggu API hapus httpOnly cookies SEBELUM redirect
-    // Kalau tidak, server-side layout masih lihat cookie → mount dashboard lagi → LOOP
     try {
-      await axios.post("/api/auth/logout", undefined, { timeout: 2000 });
+      await axios.post("/api/auth/logout", undefined, { timeout: 5000 });
     } catch {
-      // Gagal pun tetap redirect — worst case loop sekali lagi
     }
 
-    // Baru redirect SETELAH cookies dihapus
-    window.location.href = "/login";
+    window.location.replace("/login");
   }, [logout]);
 
   /** Sync status akun admin — jalan di background, TIDAK block render */
@@ -237,21 +233,15 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       setIsLoggingOut(true);
       isNavigatingAwayRef.current = true;
 
-      // Bersihkan state lokal
       logout();
       window.localStorage.removeItem("jivara-auth-storage");
 
       try {
-        await axios.post("/api/auth/logout", undefined, { timeout: 2000 });
+        await axios.post("/api/auth/logout", undefined, { timeout: 5000 });
       } catch {
       }
 
-      showToast("Berhasil keluar dari akun.", "success");
-      
-      // Full reload lebih aman untuk mereset semua state aplikasi
-      setTimeout(() => {
-        window.location.href = "/login";
-      }, 500);
+      window.location.replace("/login");
     }
   };
 
