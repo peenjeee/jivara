@@ -8,6 +8,7 @@ import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import swaggerUi from 'swagger-ui-express';
 import { swaggerSpec } from './config/swagger';
+import { swaggerUiAssets } from './config/swagger-ui-assets';
 import authRoutes from './routes/auth.routes';
 import patientRoutes from './routes/patient.routes';
 import medicationScheduleRoutes from './routes/medication-schedule.routes';
@@ -23,6 +24,8 @@ import { startMedicationReminderScheduler } from './services/medication-reminder
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+const swaggerPublicDir = path.resolve(process.cwd(), path.basename(process.cwd()) === 'backend' ? '../frontend/public' : 'frontend/public');
+const swaggerLogoDir = path.resolve(process.cwd(), path.basename(process.cwd()) === 'backend' ? '../frontend/public/images/logo' : 'frontend/public/images/logo');
 
 const allowedOrigins = (process.env.FRONTEND_URL || 'http://localhost:3000,http://127.0.0.1:3000')
   .split(',')
@@ -66,27 +69,18 @@ app.use('/uploads', express.static(path.resolve(process.cwd(), 'uploads'), {
   },
 }));
 
+app.use('/swagger-assets/logo', express.static(swaggerLogoDir));
+app.use('/swagger-assets', express.static(swaggerPublicDir));
+
 // Routes
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
   swaggerOptions: {
     persistAuthorization: true,
   },
-  customCss: `
-    html.lenis { height: auto; }
-    .lenis.lenis-smooth { scroll-behavior: auto !important; }
-    .lenis.lenis-smooth [data-lenis-prevent] { overscroll-behavior: contain; }
-    .lenis.lenis-stopped { overflow: hidden; }
-    .lenis.lenis-scrolling iframe { pointer-events: none; }
-
-    .swagger-ui .topbar { display: none }
-    /* Premium Scrollbar styling */
-    ::-webkit-scrollbar { width: 10px; }
-    ::-webkit-scrollbar-track { background: #0f172a; }
-    ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 5px; border: 2px solid #0f172a; }
-    ::-webkit-scrollbar-thumb:hover { background: #10b981; }
-  `,
-  customJs: '/swagger-custom.js',
-  customSiteTitle: "Dokumentasi API Jivara"
+  customCssUrl: swaggerUiAssets.customCssUrl,
+  customJs: swaggerUiAssets.customJs,
+  customSiteTitle: "Dokumentasi API | Jivara",
+  customfavIcon: '/swagger-assets/favicon.ico'
 }));
 
 app.use('/api/auth', authRoutes);
@@ -100,38 +94,6 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/audit-logs', auditLogRoutes);
 app.use('/api/alerts', alertRoutes);
 app.use('/api', foodAiRoutes);
-
-// Custom JS untuk Smooth Scroll Swagger (Lenis)
-app.get('/swagger-custom.js', (req: Request, res: Response) => {
-  res.type('application/javascript');
-  res.send(`
-    const script = document.createElement('script');
-    script.src = 'https://unpkg.com/lenis@1.1.18/dist/lenis.min.js';
-    script.onload = () => {
-      const lenis = new Lenis({
-        duration: 1.2,
-        easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
-        orientation: 'vertical',
-        smoothWheel: true,
-      });
-
-      function raf(time) {
-        lenis.raf(time);
-        requestAnimationFrame(raf);
-      }
-      requestAnimationFrame(raf);
-      
-      // Ubah ukuran otomatis lenis pada perubahan konten swagger yang dinamis
-      const observer = new MutationObserver(() => {
-        lenis.resize();
-      });
-      observer.observe(document.body, { childList: true, subtree: true });
-
-      window.lenis = lenis;
-    };
-    document.head.appendChild(script);
-  `);
-});
 
 // Pengecekan API
 app.get('/health', (req: Request, res: Response) => {

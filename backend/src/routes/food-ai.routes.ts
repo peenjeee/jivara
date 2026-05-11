@@ -22,7 +22,7 @@ const attachScanIdParam = (req: Request, _res: Response, next: NextFunction) => 
  * @swagger
  * tags:
  *   name: Food AI
- *   description: Mock AI food detection, interaction check, dan nutrition insight
+ *   description: Food detection berbasis AI service, interaction check, dan nutrition insight
  */
 
 /**

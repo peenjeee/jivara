@@ -1,4 +1,5 @@
 import { eq } from "drizzle-orm";
+import axios from "axios";
 import { db } from "../db";
 import {
   detectedItems,
@@ -15,7 +16,21 @@ import {
 } from "../types/food-ai.types";
 import { AccessUser, assertCanAccessPatient } from "./access-control.service";
 
-const MOCK_DETECTED_ITEMS = [
+type DetectionItem = {
+  label: string;
+  labelDisplay: string;
+  confidence: number;
+  boundingBox?: unknown;
+};
+
+type FoodDetectionResult = {
+  detectedItems: DetectionItem[];
+  lowConfidenceItems: unknown[];
+  inferenceTimeMs: number;
+  modelVersion: string;
+};
+
+const DEVELOPMENT_DETECTED_ITEMS: DetectionItem[] = [
   {
     label: "nasi_putih",
     labelDisplay: "Nasi Putih",
@@ -35,6 +50,101 @@ const MOCK_DETECTED_ITEMS = [
     boundingBox: { x: 100, y: 300, width: 220, height: 120 },
   },
 ];
+
+const getAiInferenceUrl = () => {
+  if (process.env.FOOD_AI_INFERENCE_URL) return process.env.FOOD_AI_INFERENCE_URL;
+  if (process.env.AI_INFERENCE_URL) return process.env.AI_INFERENCE_URL;
+  if (process.env.FASTAPI_URL) return `${process.env.FASTAPI_URL.replace(/\/$/, "")}/food-scans/detections`;
+  return undefined;
+};
+
+const shouldUseDevelopmentFallback = () =>
+  process.env.FOOD_AI_ALLOW_LOCAL_FALLBACK === "true" || process.env.NODE_ENV !== "production";
+
+const resolvePublicImageUrl = (imageUrl: string) => {
+  if (/^https?:\/\//i.test(imageUrl)) return imageUrl;
+  return `${(process.env.API_URL || "http://localhost:3001").replace(/\/$/, "")}${imageUrl.startsWith("/") ? "" : "/"}${imageUrl}`;
+};
+
+const toDetectionItem = (item: Record<string, unknown>): DetectionItem => ({
+  label: String(item.label || item.class || item.name || "makanan_terdeteksi"),
+  labelDisplay: String(item.label_display || item.labelDisplay || item.display || item.name || item.label || "Makanan Terdeteksi"),
+  confidence: typeof item.confidence === "number" ? item.confidence : Number(item.score || item.probability || 0),
+  boundingBox: item.bounding_box || item.boundingBox || item.bbox,
+});
+
+const normalizeDetectionResponse = (payload: unknown): FoodDetectionResult => {
+  const root = (payload && typeof payload === "object" && "data" in payload ? (payload as { data: unknown }).data : payload) as Record<string, unknown>;
+  const rawItems = Array.isArray(root?.detected_items)
+    ? root.detected_items
+    : Array.isArray(root?.detectedItems)
+      ? root.detectedItems
+      : Array.isArray(root?.predictions)
+        ? root.predictions
+        : [];
+
+  const detectedItems = rawItems
+    .filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === "object")
+    .map(toDetectionItem)
+    .filter((item) => item.label.length > 0);
+
+  if (detectedItems.length === 0) {
+    throw { status: 502, message: "Service AI tidak mengembalikan hasil deteksi", code: "AI_EMPTY_DETECTION" };
+  }
+
+  return {
+    detectedItems,
+    lowConfidenceItems: Array.isArray(root?.low_confidence_items) ? root.low_confidence_items : [],
+    inferenceTimeMs: typeof root?.inference_time_ms === "number" ? root.inference_time_ms : Number(root?.inferenceTimeMs || 0),
+    modelVersion: String(root?.model_version || root?.modelVersion || "external-food-ai"),
+  };
+};
+
+const getDevelopmentDetectionResult = (): FoodDetectionResult => ({
+  detectedItems: DEVELOPMENT_DETECTED_ITEMS,
+  lowConfidenceItems: [
+    {
+      label: "sayuran_tidak_dikenali",
+      top_predictions: [
+        { label: "bayam", confidence: 0.35 },
+        { label: "kangkung", confidence: 0.30 },
+        { label: "daun_singkong", confidence: 0.20 },
+      ],
+      message: "Tidak yakin - apakah ini bayam?",
+    },
+  ],
+  inferenceTimeMs: 1840,
+  modelVersion: "development-yolov11-indo-food-v1.0",
+});
+
+const runFoodDetection = async (scan: typeof foodScans.$inferSelect, patientId: string): Promise<FoodDetectionResult> => {
+  const inferenceUrl = getAiInferenceUrl();
+
+  if (!inferenceUrl) {
+    if (shouldUseDevelopmentFallback()) return getDevelopmentDetectionResult();
+    throw { status: 503, message: "Konfigurasi service AI belum tersedia", code: "AI_SERVICE_NOT_CONFIGURED" };
+  }
+
+  try {
+    const startedAt = Date.now();
+    const response = await axios.post(inferenceUrl, {
+      scanId: scan.id,
+      patientId,
+      imageUrl: resolvePublicImageUrl(scan.imageUrl),
+    }, {
+      timeout: Number(process.env.FOOD_AI_TIMEOUT_MS || 10000),
+    });
+    const result = normalizeDetectionResponse(response.data);
+    return {
+      ...result,
+      inferenceTimeMs: result.inferenceTimeMs || Date.now() - startedAt,
+    };
+  } catch (error) {
+    if (shouldUseDevelopmentFallback()) return getDevelopmentDetectionResult();
+    const status = axios.isAxiosError(error) && error.response?.status ? error.response.status : 502;
+    throw { status, message: "Service AI gagal memproses gambar makanan", code: "AI_INFERENCE_FAILED" };
+  }
+};
 
 const NUTRITION_MAP: Record<string, { display: string; portion: string; calories: number; protein: number; fat: number; carbs: number; source: string }> = {
   nasi_putih: { display: "Nasi Putih", portion: "1 porsi (150g)", calories: 195, protein: 3.5, fat: 0.3, carbs: 43.2, source: "TKPI" },
@@ -70,9 +180,9 @@ export const uploadFoodImage = async (dto: FoodUploadDTO, user?: AccessUser) => 
     .insert(foodScans)
     .values({
       patientId: dto.patientId,
-      imageUrl: dto.imageUrl || `https://storage.jivara.app/scans/mock-${Date.now()}.jpg`,
+      imageUrl: dto.imageUrl || `https://storage.jivara.app/scans/scan-${Date.now()}.jpg`,
       imageSizeKb: dto.imageSizeKb || 450,
-      modelVersion: "mock-yolov11-indo-food-v1.0",
+      modelVersion: "pending-food-ai-inference",
     })
     .returning();
 
@@ -94,15 +204,17 @@ export const detectFood = async (dto: FoodDetectDTO, user?: AccessUser) => {
       .insert(foodScans)
       .values({
         patientId: dto.patientId,
-        imageUrl: `https://storage.jivara.app/scans/mock-${Date.now()}.jpg`,
+        imageUrl: `https://storage.jivara.app/scans/scan-${Date.now()}.jpg`,
         imageSizeKb: 450,
-        modelVersion: "mock-yolov11-indo-food-v1.0",
+        modelVersion: "pending-food-ai-inference",
       })
       .returning())[0];
 
+  const detectionResult = await runFoodDetection(scan, dto.patientId);
+
   const existingItems = await db.select({ id: detectedItems.id }).from(detectedItems).where(eq(detectedItems.scanId, scan.id)).limit(1);
   if (existingItems.length === 0) {
-    await db.insert(detectedItems).values(MOCK_DETECTED_ITEMS.map((item) => ({
+    await db.insert(detectedItems).values(detectionResult.detectedItems.map((item) => ({
       scanId: scan.id,
       label: item.label,
       labelDisplay: item.labelDisplay,
@@ -113,30 +225,20 @@ export const detectFood = async (dto: FoodDetectDTO, user?: AccessUser) => {
 
   await db
     .update(foodScans)
-    .set({ inferenceTimeMs: 1840, modelVersion: "mock-yolov11-indo-food-v1.0" })
+    .set({ inferenceTimeMs: detectionResult.inferenceTimeMs, modelVersion: detectionResult.modelVersion })
     .where(eq(foodScans.id, scan.id));
 
   return {
     scan_id: scan.id,
-    detected_items: MOCK_DETECTED_ITEMS.map((item) => ({
+    detected_items: detectionResult.detectedItems.map((item) => ({
       label: item.label,
       label_display: item.labelDisplay,
       confidence: item.confidence,
       bounding_box: item.boundingBox,
     })),
-    low_confidence_items: [
-      {
-        label: "sayuran_tidak_dikenali",
-        top_predictions: [
-          { label: "bayam", confidence: 0.35 },
-          { label: "kangkung", confidence: 0.30 },
-          { label: "daun_singkong", confidence: 0.20 },
-        ],
-        message: "Tidak yakin - apakah ini bayam?",
-      },
-    ],
-    inference_time_ms: 1840,
-    model_version: "mock-yolov11-indo-food-v1.0",
+    low_confidence_items: detectionResult.lowConfidenceItems,
+    inference_time_ms: detectionResult.inferenceTimeMs,
+    model_version: detectionResult.modelVersion,
     timestamp: new Date(),
   };
 };
@@ -207,7 +309,7 @@ export const estimateNutrition = async (dto: NutritionDTO) => {
       protein: 0,
       fat: 0,
       carbs: 0,
-      source: "Basis Pengetahuan Mock",
+      source: "Basis Pengetahuan Lokal",
     };
 
     return {
