@@ -42,7 +42,16 @@ export default function LoginForm() {
     }
 
     const callbackUrl = searchParams.get("callbackUrl");
-    router.replace(getPostLoginPath(user, callbackUrl));
+    const targetPath = getPostLoginPath(user, callbackUrl);
+    router.replace(targetPath);
+
+    const fallbackTimer = window.setTimeout(() => {
+      if (window.location.pathname !== targetPath) {
+        window.location.replace(targetPath);
+      }
+    }, 1500);
+
+    return () => window.clearTimeout(fallbackTimer);
   }, [hasHydrated, logout, router, user]);
 
   const handleLogin = async (event: React.FormEvent) => {

@@ -30,8 +30,8 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const [isRedirectingToLogin, setIsRedirectingToLogin] = useState(false);
   const [isRestoringSession, setIsRestoringSession] = useState(false);
   const isSyncingRef = useRef(false);
-  const hasTriedSessionRestoreRef = useRef(false);
   const isNavigatingAwayRef = useRef(false);
+  const isRestoringSessionRef = useRef(false);
   const isStandalonePwa = useIsStandalonePwa();
   const pathname = usePathname();
   const router = useRouter();
@@ -80,6 +80,40 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
 
     redirectToLogin();
   }, [logout, redirectToLogin]);
+
+  const restoreSession = useCallback(async () => {
+    if (!hasHydrated || user || isLoggingOut || isNavigatingAwayRef.current || isRestoringSessionRef.current) return;
+
+    isRestoringSessionRef.current = true;
+    setIsRestoringSession(true);
+
+    try {
+      let response;
+
+      try {
+        response = await axios.post("/api/auth/status", undefined, { timeout: 5000 });
+      } catch {
+        response = await axios.post("/api/auth/refresh", undefined, { timeout: 8000 });
+      }
+
+      if (isNavigatingAwayRef.current) return;
+
+      const restoredUser: User | undefined = response.data.data.user;
+      if (restoredUser) {
+        setAuth(restoredUser, response.data.data.access_token ?? null);
+        return;
+      }
+
+      navigateToLogin();
+    } catch {
+      if (!isNavigatingAwayRef.current) {
+        navigateToLogin();
+      }
+    } finally {
+      isRestoringSessionRef.current = false;
+      setIsRestoringSession(false);
+    }
+  }, [hasHydrated, isLoggingOut, navigateToLogin, setAuth, user]);
 
   const syncCurrentUser = useCallback(async () => {
     if (!hasHydrated || isLoggingOut || isNavigatingAwayRef.current) return;
@@ -171,36 +205,32 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     if (!hasHydrated || isLoggingOut || isNavigatingAwayRef.current) return;
 
     if (!user) {
-      if (hasTriedSessionRestoreRef.current) {
-        navigateToLogin();
-        return;
-      }
-
-      hasTriedSessionRestoreRef.current = true;
-      setIsRestoringSession(true);
-      axios.post("/api/auth/status", undefined, { timeout: 5000 })
-        .then((response) => {
-          if (isNavigatingAwayRef.current) return;
-          const restoredUser: User | undefined = response.data.data.user;
-          if (restoredUser) {
-            setAuth(restoredUser, null);
-          } else {
-            navigateToLogin();
-          }
-        })
-        .catch(() => {
-          if (isNavigatingAwayRef.current) return;
-          navigateToLogin();
-        })
-        .finally(() => {
-          setIsRestoringSession(false);
-        });
-
+      void restoreSession();
       return;
     }
 
     if (!isCurrentRouteAllowed) router.replace(fallbackPath);
-  }, [fallbackPath, hasHydrated, isCurrentRouteAllowed, router, setAuth, user, isLoggingOut, navigateToLogin]);
+  }, [fallbackPath, hasHydrated, isCurrentRouteAllowed, router, user, isLoggingOut, restoreSession]);
+
+  useEffect(() => {
+    if (user || isLoggingOut || isNavigatingAwayRef.current) return;
+
+    const handleResume = () => {
+      if (document.visibilityState === "visible") {
+        void restoreSession();
+      }
+    };
+
+    window.addEventListener("focus", handleResume);
+    window.addEventListener("pageshow", handleResume);
+    document.addEventListener("visibilitychange", handleResume);
+
+    return () => {
+      window.removeEventListener("focus", handleResume);
+      window.removeEventListener("pageshow", handleResume);
+      document.removeEventListener("visibilitychange", handleResume);
+    };
+  }, [isLoggingOut, restoreSession, user]);
 
   const handleLogout = async () => {
     const result = await showConfirm("Keluar Akun?", "Anda perlu masuk kembali untuk mengakses data Anda.", "Ya, Keluar");
