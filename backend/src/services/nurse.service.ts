@@ -204,7 +204,7 @@ export const createNurse = async (dto: NurseCreateDTO, user?: AccessUser) => {
   });
 
   writeAuditLogAsync({
-    userId: createdBy || null,
+    userId: user?.id || null,
     action: "nurse.created",
     resourceType: "nurse",
     resourceId: nurse.id,

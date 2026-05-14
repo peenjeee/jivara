@@ -125,7 +125,7 @@ export const subscribeUserDevice = async (dto: UserPushSubscriptionDTO, user: Ac
       .where(eq(userPushSubscriptions.id, existing[0].id))
       .returning();
 
-    await writeAuditLog({
+    writeAuditLogAsync({
       userId: user.id,
       action: "user_push_subscription.updated",
       resourceType: "user_push_subscription",
@@ -148,7 +148,7 @@ export const subscribeUserDevice = async (dto: UserPushSubscriptionDTO, user: Ac
     })
     .returning();
 
-  await writeAuditLog({
+  writeAuditLogAsync({
     userId: user.id,
     action: "user_push_subscription.created",
     resourceType: "user_push_subscription",

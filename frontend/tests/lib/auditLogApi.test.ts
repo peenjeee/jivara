@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import api from "@/lib/axios";
-import { getAuditActivitiesFromApi, getSuperAdminApprovalActivitiesFromApi } from "@/lib/auditLogApi";
+import { clearAuditLogCache, getAuditActivitiesFromApi, getSuperAdminApprovalActivitiesFromApi } from "@/lib/auditLogApi";
 
 vi.mock("@/lib/axios", () => ({
   default: {
@@ -13,6 +13,7 @@ const mockedGet = vi.mocked(api.get);
 describe("auditLogApi", () => {
   beforeEach(() => {
     mockedGet.mockReset();
+    clearAuditLogCache();
   });
 
   it("maps generic audit logs to activity records", async () => {

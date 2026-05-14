@@ -359,8 +359,10 @@ export const updatePatient = async (patientId: string, dto: PatientUpdateDTO, us
 };
 
 export const assignPatient = async (patientId: string, nurseId: string, assignedBy?: string) => {
+  const assignedByUser = assignedBy ? await db.select({ role: users.role }).from(users).where(eq(users.id, assignedBy)).limit(1) : [];
+  const isSuperAdmin = assignedByUser[0]?.role === "super_admin";
   const organizationId = assignedBy ? await getOrganizationIdForUser(assignedBy) : null;
-  const patient = await getPatientCoreById(patientId, assignedBy ? { id: assignedBy, email: "", role: "admin" } : undefined);
+  const patient = await getPatientCoreById(patientId, assignedBy ? { id: assignedBy, email: "", role: isSuperAdmin ? "super_admin" : "admin" } : undefined);
 
   if (!isSuperAdmin && (!organizationId || patient.organizationId !== organizationId)) {
     throw { status: 403, message: "Pasien tidak berada dalam organisasi admin", code: "FORBIDDEN" };
@@ -406,7 +408,7 @@ export const assignPatient = async (patientId: string, nurseId: string, assigned
     changes: { nurseId },
   });
 
-  return getPatientCoreById(patientId, assignedBy ? { id: assignedBy, email: "", role: "admin" } : undefined);
+  return getPatientCoreById(patientId, assignedBy ? { id: assignedBy, email: "", role: isSuperAdmin ? "super_admin" : "admin" } : undefined);
 };
 
 export const deactivatePatient = async (patientId: string, user?: AccessUser) => {
