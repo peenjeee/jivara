@@ -56,10 +56,8 @@ export default function PatientSchedulePage() {
   const selectedDateKey = getDateKey(selectedDate);
   const confirmedScheduleIds = confirmedScheduleDates[selectedDateKey] ?? [];
   const activeSchedules = patientSchedules.filter((schedule) => schedule.status === "Aktif");
-  const completedScheduleCount = Object.values(confirmedScheduleDates).reduce((total, scheduleIds) => {
-    const patientConfirmedIds = scheduleIds.filter((scheduleId) => patientSchedules.some((schedule) => schedule.id === scheduleId));
-    return total + patientConfirmedIds.length;
-  }, 0);
+  const patientScheduleIds = new Set(patientSchedules.map((schedule) => schedule.id));
+  const completedScheduleCount = Object.values(confirmedScheduleDates).reduce((total, scheduleIds) => total + scheduleIds.filter((scheduleId) => patientScheduleIds.has(scheduleId)).length, 0);
   const scheduleStats: SummaryCardItem[] = [
     {
       label: "Jadwal Aktif",
@@ -70,7 +68,7 @@ export default function PatientSchedulePage() {
     },
     {
       label: "Total Selesai",
-      value: `${completedScheduleCount}/${activeSchedules.length}`,
+      value: `${completedScheduleCount}/${patientSchedules.length}`,
       tone: "safe",
       color: "leaf",
       icon: CheckCircle2,

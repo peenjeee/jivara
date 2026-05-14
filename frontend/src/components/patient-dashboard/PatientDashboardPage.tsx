@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { BellRing, Pill, ShieldCheck } from "lucide-react";
 import DashboardPageHeader from "@/components/dashboard/DashboardPageHeader";
 import DashboardPageShell from "@/components/dashboard/DashboardPageShell";
-import { SummaryCardsSkeleton } from "@/components/ui/PageSkeletons";
+import { ActivityDataSkeleton, SummaryCardsSkeleton } from "@/components/ui/PageSkeletons";
 import SummaryCardGrid from "@/components/ui/SummaryCardGrid";
 import type { SummaryCardItem } from "@/components/ui/SummaryCard";
 import type { PatientRecord } from "@/lib/mocks/patients";
@@ -95,7 +95,7 @@ export default function PatientDashboardPage() {
       {isLoading ? <SummaryCardsSkeleton /> : <SummaryCardGrid stats={stats} />}
 
       <div className="mt-6 space-y-6">
-        <PatientAdherenceHeatmap adherence={patient.adherence} />
+        {isLoading ? <ActivityDataSkeleton rows={5} /> : <PatientAdherenceHeatmap adherence={patient.adherence} />}
       </div>
     </DashboardPageShell>
   );
