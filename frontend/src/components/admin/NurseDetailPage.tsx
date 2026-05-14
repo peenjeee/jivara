@@ -205,7 +205,7 @@ export default function NurseDetailPage({ nurseId }: NurseDetailPageProps) {
   return (
     <DashboardPageShell>
       <DashboardPageHeader
-        title={nurse.fullName}
+        title="Detail Perawat"
       />
 
       <motion.section

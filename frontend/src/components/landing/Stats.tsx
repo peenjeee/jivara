@@ -44,7 +44,6 @@ const getPublicStatsUrls = () => {
 
 export default function Stats() {
   const [stats, setStats] = useState(fallbackStats);
-  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     let isMounted = true;
@@ -63,9 +62,6 @@ export default function Stats() {
       })
       .catch(() => {
         if (isMounted) setStats(fallbackStats);
-      })
-      .finally(() => {
-        if (isMounted) setIsLoading(false);
       });
 
     return () => {
@@ -81,7 +77,7 @@ export default function Stats() {
         </h2>
       </LandingReveal>
 
-      {isLoading ? <div className="mx-auto mt-10 grid max-w-[720px] gap-4 sm:grid-cols-2"><div className="h-32 animate-pulse rounded-[28px] bg-white shadow-[0_10px_30px_rgba(15,23,42,0.06)]" /><div className="h-32 animate-pulse rounded-[28px] bg-white shadow-[0_10px_30px_rgba(15,23,42,0.06)]" /></div> : <LandingSummaryGrid stats={stats} />}
+      <LandingSummaryGrid stats={stats} />
 
       <SystemDemoVideo />
     </Section>

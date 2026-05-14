@@ -144,6 +144,7 @@ export default function ScheduleForm({ patients, initialValues, mode = "add", pa
   const [isSubmitting, setIsSubmitting] = useState(false);
   const canManageBlocks = mode === "add";
   const displayIndexOffset = patientLocked ? medicineIndexOffset : medicineIndexOffsetByPatient[selectedPatientId] ?? 0;
+  const patientOptions = Array.from(new Map(patients.map((patient) => [patient.id, patient])).values()).map((patient) => ({ label: patient.name, value: patient.id }));
 
   const handleSubmit = async (formData: FormData) => {
     if (isSubmitting) return;
@@ -190,7 +191,7 @@ export default function ScheduleForm({ patients, initialValues, mode = "add", pa
           id="schedulePatientId"
           name={patientLocked ? undefined : "patientId"}
           defaultValue={values.patientId}
-          options={[{ label: "Pilih pasien", value: "", disabled: true }, ...patients.map((patient) => ({ label: patient.name, value: patient.id }))]}
+          options={[{ label: "Pilih pasien", value: "", disabled: true }, ...patientOptions]}
           placeholder="Pilih pasien"
           className={SCHEDULE_INPUT_CLASS}
           required

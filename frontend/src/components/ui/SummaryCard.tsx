@@ -64,7 +64,7 @@ export default function SummaryCard({ stat, compact = false }: SummaryCardProps)
         <div className="relative z-10 flex h-full items-center gap-5 sm:gap-7">
           <Icon className={`h-12 w-12 shrink-0 sm:h-14 sm:w-14 ${iconColorStyles[color]}`} strokeWidth={2.4} aria-hidden="true" focusable="false" />
           <div className="flex min-w-0 flex-1 flex-col items-start gap-5 sm:gap-7">
-            <p className={`font-black leading-tight tracking-[-0.04em] text-text-main ${labelSizeClass}`}>{stat.label}</p>
+            <p className={`max-w-full whitespace-normal break-words font-black leading-tight tracking-[-0.04em] text-text-main ${labelSizeClass}`}>{stat.label}</p>
             <p className={`font-body font-black leading-none tracking-[-0.07em] text-text-main ${valueSizeClass}`}>{stat.value}</p>
           </div>
         </div>
