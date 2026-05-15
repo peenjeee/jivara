@@ -5,7 +5,7 @@ import type { MedicationScheduleRecord } from "@/lib/mocks/schedules";
 import { getPatientDetailFromApi, getPatientsFromApi } from "@/lib/patientApi";
 import { getSchedulesFromApi } from "@/lib/scheduleApi";
 
-interface MedicationLogResponse {
+export interface MedicationLogResponse {
   id: string;
   scheduleId: string;
   patientId: string;
@@ -16,6 +16,18 @@ interface MedicationLogResponse {
   createdAt?: string | null;
 }
 
+export interface PatientAdherenceDayResponse {
+  date: string;
+  scheduled: number;
+  confirmed: number;
+}
+
+export interface PatientAdherenceStatsResponse {
+  adherenceRate: number;
+  totalScheduled: number;
+  dailyBreakdown: PatientAdherenceDayResponse[];
+}
+
 interface PaginatedResponse<T> {
   data: T[];
 }
@@ -24,6 +36,7 @@ export interface PatientDashboardData {
   patient: PatientRecord;
   schedules: MedicationScheduleRecord[];
   medicationLogs: MedicationLogResponse[];
+  adherenceStats: PatientAdherenceStatsResponse;
 }
 
 export const getCurrentPatientFromApi = async () => {
@@ -41,15 +54,17 @@ export const getCurrentPatientFromApi = async () => {
 export const getPatientDashboardData = async (): Promise<PatientDashboardData> => {
   const patient = await getCurrentPatientFromApi();
   const patients = await getPatientsFromApi();
-  const [schedules, logResponse] = await Promise.all([
+  const [schedules, logResponse, adherenceResponse] = await Promise.all([
     getSchedulesFromApi(patients),
     api.get<PaginatedResponse<MedicationLogResponse>>("/medication-logs", { params: { patient_id: patient.id, limit: 100 } }),
+    api.get<{ data: PatientAdherenceStatsResponse }>("/adherence", { params: { patient_id: patient.id, period: "30d" } }),
   ]);
 
   return {
     patient,
     schedules: schedules.filter((schedule) => schedule.patientId === patient.id),
     medicationLogs: logResponse.data.data,
+    adherenceStats: adherenceResponse.data.data,
   };
 };
 

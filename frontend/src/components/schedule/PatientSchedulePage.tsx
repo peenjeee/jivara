@@ -57,24 +57,24 @@ export default function PatientSchedulePage() {
   const confirmedScheduleIds = confirmedScheduleDates[selectedDateKey] ?? [];
   const activeSchedules = patientSchedules.filter((schedule) => schedule.status === "Aktif");
   const patientScheduleIds = new Set(patientSchedules.map((schedule) => schedule.id));
-  const completedScheduleCount = Object.values(confirmedScheduleDates).reduce((total, scheduleIds) => total + scheduleIds.filter((scheduleId) => patientScheduleIds.has(scheduleId)).length, 0);
+  const completedScheduleCount = new Set(Object.values(confirmedScheduleDates).flat().filter((scheduleId) => patientScheduleIds.has(scheduleId))).size;
   const scheduleStats: SummaryCardItem[] = [
     {
-      label: "Jadwal Aktif",
+      label: "Jadwal Obat Aktif",
       value: String(activeSchedules.length),
       tone: "safe",
       color: "pine",
       icon: CalendarClock,
     },
     {
-      label: "Total Selesai",
+      label: "Total Obat Selesai",
       value: `${completedScheduleCount}/${patientSchedules.length}`,
       tone: "safe",
       color: "leaf",
       icon: CheckCircle2,
     },
     {
-      label: "Reminder Aktif",
+      label: "Reminder Obat Aktif",
       value: String(activeSchedules.filter((schedule) => schedule.reminderEnabled).length),
       tone: "safe",
       color: "lime",

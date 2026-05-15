@@ -166,13 +166,14 @@ describe("role dashboard and settings features", () => {
       patient: { ...patient, name: "Pasien Budi", adherence: 82, status: "On Ideal Schedule" },
       schedules: [schedule],
       medicationLogs: [],
+      adherenceStats: { adherenceRate: 82, totalScheduled: 1, dailyBreakdown: [{ date: "2026-05-15", scheduled: 1, confirmed: 1 }] },
     });
 
     render(<PatientDashboardPage />);
 
     await waitFor(() => expect(screen.getByText(/Pasien Budi/)).toBeInTheDocument());
-    expect(screen.getByText("Obat Aktif")).toBeInTheDocument();
-    expect(screen.getByText("Kepatuhan Saya")).toBeInTheDocument();
+    expect(screen.getByText("Obat Aktif Saya")).toBeInTheDocument();
+    expect(screen.getByText("Kepatuhan Keseluruhan Saya")).toBeInTheDocument();
 
     render(<PatientSettingsPage />);
     expect(screen.getByText("Profil Saya")).toBeInTheDocument();

@@ -52,7 +52,7 @@ export default function PatientDetailPage({ data, patientId }: PatientDetailPage
   const summary = getPatientSummary(detailData);
   const stats = [
     {
-      label: "Kepatuhan",
+      label: "Kepatuhan Pasien",
       value: `${detailData.patient.adherence}%`,
       tone: detailData.patient.adherence >= 80 ? "safe" : detailData.patient.adherence >= 60 ? "warning" : "critical",
       color: "pine",
@@ -60,21 +60,21 @@ export default function PatientDetailPage({ data, patientId }: PatientDetailPage
       progress: detailData.patient.adherence,
     },
     {
-      label: "Obat Aktif",
+      label: "Obat Aktif Pasien",
       value: String(summary.activeMedicineCount),
       tone: "safe",
       color: "leaf",
       icon: ClipboardList,
     },
     {
-      label: "Reminder Aktif",
+      label: "Reminder Obat Aktif",
       value: String(summary.activeReminderCount),
       tone: "safe",
       color: "lime",
       icon: Bell,
     },
     {
-      label: "Aktivitas Kritis",
+      label: "Notifikasi Peringatan",
       value: String(summary.criticalActivityCount),
       tone: summary.criticalActivityCount > 0 ? "critical" : "safe",
       color: summary.criticalActivityCount > 0 ? "danger" : "primary",

@@ -9,6 +9,7 @@ export interface MedicationScheduleRecord {
   readonly patientId: string;
   readonly patientName: string;
   readonly patientAvatar: string;
+  readonly patientStatus?: PatientStatus;
   readonly medicineName: string;
   readonly dose: string;
   readonly medicineForm: MedicineForm;

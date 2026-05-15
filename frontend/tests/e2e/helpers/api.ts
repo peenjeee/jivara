@@ -23,6 +23,22 @@ export async function mockCommonApi(page: Page) {
     await fulfillJson(route, { data: { totalActivePatients: 2, averageAdherenceRate: 88, totalScheduled: 3 } });
   });
 
+  await page.route(/\/api\/(?:v\d+\/)?adherence(?:\?.*)?$/, async (route) => {
+    const url = new URL(route.request().url());
+    const patientId = url.searchParams.get("patient_id") || url.searchParams.get("patientId");
+    const adherenceRate = patientId === "JVR-02" ? 100 : 45;
+    await fulfillJson(route, {
+      data: {
+        patientId,
+        adherenceRate,
+        totalScheduled: 2,
+        totalConfirmed: patientId === "JVR-02" ? 2 : 1,
+        totalMissed: patientId === "JVR-02" ? 0 : 1,
+        dailyBreakdown: [{ date: "2026-05-09", scheduled: 2, confirmed: patientId === "JVR-02" ? 2 : 1, missed: patientId === "JVR-02" ? 0 : 1, snoozed: 0 }],
+      },
+    });
+  });
+
   await page.route(/\/api\/(?:v\d+\/)?patients(?:\?.*)?$/, async (route) => {
     await fulfillJson(route, {
       data: [

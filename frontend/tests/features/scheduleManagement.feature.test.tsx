@@ -62,7 +62,7 @@ describe("schedule management feature", () => {
     render(<SchedulePage />);
 
     expect(await screen.findAllByText("Budi Santoso")).not.toHaveLength(0);
-    expect(screen.getAllByText("Jadwal Aktif")).not.toHaveLength(0);
+    expect(screen.getAllByText("Jadwal Obat Aktif")).not.toHaveLength(0);
 
     fireEvent.change(screen.getByPlaceholderText("Cari nama pasien ..."), { target: { value: "zzz" } });
     expect(screen.getAllByText("Tidak ada data jadwal.")).not.toHaveLength(0);

@@ -3,6 +3,7 @@
 import { useDeferredValue, useEffect, useMemo, useState } from "react";
 import { BellRing, CalendarClock, CheckCircle2 } from "lucide-react";
 import { groupSchedulesByPatient } from "@/helpers/schedules";
+import { getApiErrorMessage } from "@/lib/apiErrors";
 import type { PatientRecord } from "@/lib/mocks/patients";
 import type { MedicationScheduleRecord } from "@/lib/mocks/schedules";
 import { getPatientsFromApi } from "@/lib/patientApi";
@@ -61,9 +62,9 @@ export function useScheduleManager(initialPatientName: string) {
     const reminders = schedules.filter((schedule) => schedule.reminderEnabled).length;
 
     return [
-      { label: "Jadwal Aktif", value: String(active), tone: "safe" as const, color: "pine" as const, icon: CalendarClock },
-      { label: "Selesai", value: String(completed), tone: "safe" as const, color: "leaf" as const, icon: CheckCircle2 },
-      { label: "Reminder Aktif", value: String(reminders), tone: "neutral" as const, color: "lime" as const, icon: BellRing },
+      { label: "Jadwal Obat Aktif", value: String(active), tone: "safe" as const, color: "pine" as const, icon: CalendarClock },
+      { label: "Total Obat Selesai", value: String(completed), tone: "safe" as const, color: "leaf" as const, icon: CheckCircle2 },
+      { label: "Reminder Obat Aktif", value: String(reminders), tone: "neutral" as const, color: "lime" as const, icon: BellRing },
     ];
   }, [schedules]);
 
@@ -109,8 +110,8 @@ export function useScheduleManager(initialPatientName: string) {
     try {
       const createdSchedules = await createSchedulesViaApi(values.patientId, values.medicines, patients);
       setSchedules((currentSchedules) => [...createdSchedules, ...currentSchedules]);
-    } catch {
-      showError("Gagal menambahkan jadwal obat dari API.");
+    } catch (error) {
+      showError(getApiErrorMessage(error, "Gagal menambahkan jadwal obat dari API."));
       return;
     }
 
@@ -128,8 +129,8 @@ export function useScheduleManager(initialPatientName: string) {
     try {
       const updatedSchedule = await updateScheduleViaApi(editingSchedule.id, values.patientId, medicine, patients);
       setSchedules((currentSchedules) => currentSchedules.map((schedule) => schedule.id === editingSchedule.id ? updatedSchedule : schedule));
-    } catch {
-      showError("Gagal memperbarui jadwal obat dari API.");
+    } catch (error) {
+      showError(getApiErrorMessage(error, "Gagal memperbarui jadwal obat dari API."));
       return;
     }
 
@@ -154,8 +155,8 @@ export function useScheduleManager(initialPatientName: string) {
       try {
         const updatedSchedule = await setScheduleActiveViaApi(schedule, schedule.status === "Nonaktif", patients);
         setSchedules((currentSchedules) => currentSchedules.map((currentSchedule) => currentSchedule.id === schedule.id ? updatedSchedule : currentSchedule));
-      } catch {
-        showError("Gagal mengubah status jadwal obat dari API.");
+      } catch (error) {
+        showError(getApiErrorMessage(error, "Gagal mengubah status jadwal obat dari API."));
         return;
       } finally {
         setProcessingAction(null);
@@ -174,8 +175,8 @@ export function useScheduleManager(initialPatientName: string) {
     try {
       await deactivateScheduleViaApi(schedule.id);
       setSchedules((currentSchedules) => currentSchedules.filter((currentSchedule) => currentSchedule.id !== schedule.id));
-    } catch {
-      showError("Gagal menghapus jadwal obat dari API.");
+    } catch (error) {
+      showError(getApiErrorMessage(error, "Gagal menghapus jadwal obat dari API."));
       return;
     } finally {
       setProcessingAction(null);

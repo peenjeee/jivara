@@ -3,6 +3,7 @@
 import { useState, type FormEvent } from "react";
 import { motion } from "motion/react";
 import { Lock, Save } from "lucide-react";
+import { getApiErrorMessage } from "@/lib/apiErrors";
 import api from "@/lib/axios";
 import { showError, showToast, showWarning } from "@/lib/swal";
 import { useAuthStore } from "@/store/auth";
@@ -46,8 +47,8 @@ export default function ForcePasswordChangeModal() {
       setNewPassword("");
       setConfirmPassword("");
       showToast("Kata sandi berhasil diperbarui.", "success");
-    } catch {
-      showError("Gagal memperbarui kata sandi. Silakan coba lagi.");
+    } catch (error) {
+      showError(getApiErrorMessage(error, "Gagal memperbarui kata sandi. Silakan coba lagi."));
     } finally {
       setIsSubmitting(false);
     }

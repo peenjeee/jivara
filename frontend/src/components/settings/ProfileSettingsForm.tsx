@@ -4,6 +4,7 @@ import { useState, type FormEvent } from "react";
 import { Mail, Phone, Save, User } from "lucide-react";
 import AuthInput from "@/components/ui/AuthInput";
 import Button from "@/components/ui/Button";
+import { getApiErrorMessage } from "@/lib/apiErrors";
 import { updateProfileViaApi } from "@/lib/profileApi";
 import { showToast, showWarning } from "@/lib/swal";
 import { useAuthStore } from "@/store/auth";
@@ -50,8 +51,8 @@ export default function ProfileSettingsForm() {
       const updatedUser = await updateProfileViaApi({ fullName: trimmedName, email: trimmedEmail, phone: trimmedPhone });
       setAuth(updatedUser);
       showToast("Profil berhasil diperbarui.");
-    } catch {
-      showWarning("Profil gagal diperbarui. Periksa koneksi atau data yang digunakan.");
+    } catch (error) {
+      showWarning(getApiErrorMessage(error, "Profil gagal diperbarui. Periksa koneksi atau data yang digunakan."));
     } finally {
       setIsSaving(false);
     }

@@ -25,6 +25,7 @@ interface PaginatedResponse<T> {
 
 interface AlertResponse {
   id: string;
+  patientId: string;
   status: string;
   severity: "warning" | "critical";
 }
@@ -33,6 +34,11 @@ interface AggregateAdherenceResponse {
   totalActivePatients: number;
   averageAdherenceRate: number;
   totalScheduled: number;
+}
+
+interface AdherenceStatsResponse {
+  adherenceRate: number;
+  totalScheduled?: number;
 }
 
 export interface NurseDashboardData {
@@ -59,13 +65,13 @@ const getAge = (dateOfBirth?: string | null) => {
 
 const getInitials = (name: string) => name.split(" ").filter(Boolean).slice(0, 2).map((part) => part[0]).join("").toUpperCase() || "PX";
 
-const getStatusFromAlerts = (criticalAlerts: number, warningAlerts: number): PatientStatus => {
-  if (criticalAlerts > 0) return "Need Special Attention";
-  if (warningAlerts > 0) return "Lagging Behind";
+const getStatusFromAdherence = (adherence: number): PatientStatus => {
+  if (adherence < 50) return "Need Special Attention";
+  if (adherence < 75) return "Lagging Behind";
   return "On Ideal Schedule";
 };
 
-const mapPatient = (patient: PatientListResponse): PatientRecord => ({
+const mapPatient = (patient: PatientListResponse, adherence: number, status: PatientStatus): PatientRecord => ({
   id: patient.id,
   name: patient.fullName,
   age: getAge(patient.dateOfBirth),
@@ -73,34 +79,43 @@ const mapPatient = (patient: PatientListResponse): PatientRecord => ({
   phone: patient.phone ?? undefined,
   email: patient.email ?? undefined,
   address: patient.address ?? undefined,
-  status: "On Ideal Schedule",
+  status,
   lastVisit: patient.createdAt ? new Date(patient.createdAt).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" }) : "-",
-  adherence: 100,
+  adherence,
   avatar: getInitials(patient.fullName),
 });
 
+const normalizeAdherence = (adherence: number | null | undefined, totalScheduled?: number | null) => {
+  if (!totalScheduled) return 100;
+  return Math.round(adherence ?? 0);
+};
+
 export const getNurseDashboardData = async (): Promise<NurseDashboardData> => {
-  const [patientsResponse, alertsResponse] = await Promise.all([
+  const [patientsResponse, alertsResponse, adherenceResponse] = await Promise.all([
     api.get<PaginatedResponse<PatientListResponse>>("/patients", { params: { limit: 5, status: "active" } }),
     api.get<PaginatedResponse<AlertResponse>>("/alerts", { params: { limit: 100 } }),
+    api.get<{ data: AdherenceStatsResponse }>("/adherence", { params: { period: "30d" } }),
   ]);
 
   const alerts = alertsResponse.data.data;
   const criticalAlerts = alerts.filter((alert) => alert.severity === "critical" || alert.status === "missed").length;
   const warningAlerts = Math.max(alerts.length - criticalAlerts, 0);
   const totalPatients = patientsResponse.data.meta?.total ?? patientsResponse.data.data.length;
-  const alertStatus = getStatusFromAlerts(criticalAlerts, warningAlerts);
-  const patients = patientsResponse.data.data.map((patient, index) => ({
-    ...mapPatient(patient),
-    status: index === 0 ? alertStatus : "On Ideal Schedule",
-    adherence: alertStatus === "Need Special Attention" && index === 0 ? 45 : alertStatus === "Lagging Behind" && index === 0 ? 65 : 90,
-  }));
+  const averageAdherenceRate = normalizeAdherence(adherenceResponse.data.data.adherenceRate, adherenceResponse.data.data.totalScheduled);
+  const patientAdherence = await Promise.all(patientsResponse.data.data.map((patient) => api
+    .get<{ data: AdherenceStatsResponse }>("/adherence", { params: { patient_id: patient.id, period: "30d" } })
+    .then((response) => normalizeAdherence(response.data.data.adherenceRate, response.data.data.totalScheduled))
+  ));
+  const patients = patientsResponse.data.data.map((patient, index) => {
+    const adherence = patientAdherence[index] ?? 0;
+    return mapPatient(patient, adherence, getStatusFromAdherence(adherence));
+  });
 
   return {
     stats: [
       { label: "Total Pasien Saya", value: String(totalPatients), helper: "", tone: "safe", color: "pine", icon: UsersRound },
-      { label: "Peringatan Pasien Kritis", value: String(criticalAlerts), helper: warningAlerts > 0 ? `${warningAlerts} peringatan aktif` : "", tone: criticalAlerts > 0 ? "critical" : "safe", color: "lime", icon: AlertTriangle },
-      { label: "Kepatuhan Pasien Keseluruhan", value: criticalAlerts > 0 ? "Perlu dicek" : "Stabil", helper: "Berdasarkan alert aktif", tone: criticalAlerts > 0 ? "warning" : "safe", color: "leaf", icon: CheckCircle2, progress: criticalAlerts > 0 ? 67 : 90 },
+      { label: "Notifikasi Peringatan Pasien", value: String(criticalAlerts), helper: warningAlerts > 0 ? `${warningAlerts} peringatan aktif` : "", tone: criticalAlerts > 0 ? "critical" : "safe", color: "lime", icon: AlertTriangle },
+      { label: "Kepatuhan Pasien Keseluruhan", value: `${averageAdherenceRate}%`, helper: "Rata-rata 30 hari", tone: averageAdherenceRate >= 80 ? "safe" : averageAdherenceRate >= 60 ? "warning" : "critical", color: "leaf", icon: CheckCircle2, progress: averageAdherenceRate },
     ],
     patients,
   };

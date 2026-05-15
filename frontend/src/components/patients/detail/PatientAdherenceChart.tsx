@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Line } from "react-chartjs-2";
 import {
   CategoryScale,
@@ -15,7 +15,8 @@ import {
   type ChartOptions,
   type ScriptableContext,
 } from "chart.js";
-import { getAdherenceTrend, type AdherenceRange } from "@/helpers/patientDetails";
+import type { AdherenceRange, AdherenceTrendPoint } from "@/helpers/patientDetails";
+import api from "@/lib/axios";
 import type { PatientRecord } from "@/lib/mocks/patients";
 import PatientDetailSection from "./PatientDetailSection";
 
@@ -34,9 +35,37 @@ interface PatientAdherenceChartProps {
   readonly patient: PatientRecord;
 }
 
+interface AdherenceDayResponse {
+  readonly date: string;
+  readonly scheduled: number;
+  readonly confirmed: number;
+}
+
+interface AdherenceStatsResponse {
+  readonly dailyBreakdown?: AdherenceDayResponse[];
+}
+
 export default function PatientAdherenceChart({ patient }: PatientAdherenceChartProps) {
   const [range, setRange] = useState<AdherenceRange>(7);
-  const trend = useMemo(() => getAdherenceTrend(patient, range), [patient, range]);
+  const [trend, setTrend] = useState<AdherenceTrendPoint[]>([]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    api.get<{ data: AdherenceStatsResponse }>("/adherence", { params: { patient_id: patient.id, period: `${range}d` } })
+      .then((response) => {
+        if (!isMounted) return;
+        setTrend(mapDailyBreakdown(response.data.data.dailyBreakdown ?? []));
+      })
+      .catch(() => {
+        if (isMounted) setTrend([]);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [patient.id, range]);
+
   const data = useMemo<ChartData<"line">>(() => ({
     labels: trend.map((point) => point.label),
     datasets: [
@@ -127,4 +156,11 @@ export default function PatientAdherenceChart({ patient }: PatientAdherenceChart
       </div>
     </PatientDetailSection>
   );
+}
+
+function mapDailyBreakdown(days: readonly AdherenceDayResponse[]): AdherenceTrendPoint[] {
+  return days.map((day) => ({
+    label: new Date(day.date).toLocaleDateString("id-ID", { day: "2-digit", month: "short" }),
+    value: day.scheduled > 0 ? Math.round((day.confirmed / day.scheduled) * 100) : 100,
+  }));
 }

@@ -23,7 +23,7 @@ export const dashboardStats: DashboardStat[] = [
     icon: UsersRound,
   },
   {
-    label: "Peringatan Pasien Kritis",
+    label: "Notifikasi Peringatan Pasien",
     value: "0",
     helper: "",
     tone: "critical",

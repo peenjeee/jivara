@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "motion/react";
-import { CheckCheck, Eye } from "lucide-react";
+import { CheckCheck, Eye, LoaderCircle } from "lucide-react";
 import type { ActivityLogRecord } from "@/lib/mocks/activityLogs";
 import { formatActivityTime } from "@/helpers/activityLogs";
 import { ActivityCategoryBadge, ActivityCategoryIcon, ActivitySeverityBadge } from "./ActivityBadges";
@@ -10,11 +10,12 @@ interface ActivityFeedItemProps {
   readonly activity: ActivityLogRecord;
   readonly index: number;
   readonly readOnly?: boolean;
+  readonly isProcessing?: boolean;
   readonly onMarkRead: (activityId: string) => void;
   readonly onViewDetail: (activity: ActivityLogRecord) => void;
 }
 
-export default function ActivityFeedItem({ activity, index, readOnly = false, onMarkRead, onViewDetail }: ActivityFeedItemProps) {
+export default function ActivityFeedItem({ activity, index, readOnly = false, isProcessing = false, onMarkRead, onViewDetail }: ActivityFeedItemProps) {
   return (
     <motion.article
       className={`relative rounded-3xl border bg-white p-4 shadow-[0_10px_30px_rgba(15,23,42,0.06)] transition-colors sm:p-5 border-transparent`}
@@ -51,8 +52,8 @@ export default function ActivityFeedItem({ activity, index, readOnly = false, on
               <Eye size={15} /> Detail
             </button>
             {!readOnly && !activity.read && (
-              <button type="button" onClick={() => onMarkRead(activity.id)} className="inline-flex items-center gap-2 rounded-full bg-surface px-4 py-2 text-sm font-extrabold text-muted transition-colors hover:bg-line/60 hover:text-text-main">
-                <CheckCheck size={15} /> Tandai dibaca
+              <button type="button" onClick={() => onMarkRead(activity.id)} disabled={isProcessing} className="inline-flex items-center gap-2 rounded-full bg-surface px-4 py-2 text-sm font-extrabold text-muted transition-colors hover:bg-line/60 hover:text-text-main disabled:cursor-not-allowed disabled:opacity-60">
+                {isProcessing ? <LoaderCircle size={15} className="animate-spin" /> : <CheckCheck size={15} />} Tandai dibaca
               </button>
             )}
           </div>

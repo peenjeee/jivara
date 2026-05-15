@@ -48,6 +48,8 @@ export default function ActivityLogPage({ initialPatientName = "", initialCatego
   const [selectedFoodScanId, setSelectedFoodScanId] = useState<string | null>(null);
   const [patientAssignments, setPatientAssignments] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(true);
+  const [processingActivityId, setProcessingActivityId] = useState<string | null>(null);
+  const [isMarkingAllRead, setIsMarkingAllRead] = useState(false);
   const deferredSearch = useDeferredValue(search);
 
   useEffect(() => {
@@ -85,9 +87,9 @@ export default function ActivityLogPage({ initialPatientName = "", initialCatego
     return [
       readOnly
         ? { label: "Total Aktivitas", value: String(activities.length), tone: "neutral" as const, color: "pine" as const, icon: ClipboardList }
-        : { label: "Belum Dibaca", value: String(unread), tone: "neutral" as const, color: "pine" as const, icon: Bell },
-      { label: "Peringatan/Kritis", value: String(warningCritical), tone: "critical" as const, color: "lime" as const, icon: AlertTriangle },
-      { label: "Total Hari Ini", value: String(todayTotal), tone: "safe" as const, color: "leaf" as const, icon: ClipboardList },
+        : { label: "Notifikasi Belum Dibaca", value: String(unread), tone: "neutral" as const, color: "pine" as const, icon: Bell },
+      { label: "Notifikasi Peringatan", value: String(warningCritical), tone: "critical" as const, color: "lime" as const, icon: AlertTriangle },
+      { label: "Total Aktivitas Hari Ini", value: String(todayTotal), tone: "safe" as const, color: "leaf" as const, icon: ClipboardList },
     ];
   }, [activities, readOnly, todayKey]);
 
@@ -143,18 +145,36 @@ export default function ActivityLogPage({ initialPatientName = "", initialCatego
     setVisibleCount(loadBatchSize);
   };
 
-  const markAsRead = (activityId: string) => {
+  const markAsRead = async (activityId: string) => {
     if (readOnly) return;
-    markActivityAsRead(activityId);
+    const activity = activities.find((item) => item.id === activityId);
+    if (!activity) return;
+
+    setProcessingActivityId(activityId);
+    try {
+      if (activity.category === "Kepatuhan") await resolveAlertViaApi(activityId);
+      markActivityAsRead(activityId);
+    } catch {
+      showToast("Gagal menandai aktivitas sebagai dibaca.", "error");
+    } finally {
+      setProcessingActivityId(null);
+    }
   };
 
-  const markAllAsRead = () => {
+  const markAllAsRead = async () => {
     if (readOnly) return;
-    filteredActivities.forEach((activity) => {
-      if (activity.category === "Kepatuhan") resolveAlertViaApi(activity.id).catch(() => { });
-    });
-    markAllActivitiesAsRead();
-    showToast("Semua aktivitas ditandai sudah dibaca.");
+    setIsMarkingAllRead(true);
+    try {
+      await Promise.all(filteredActivities
+        .filter((activity) => activity.category === "Kepatuhan" && !activity.read)
+        .map((activity) => resolveAlertViaApi(activity.id)));
+      markAllActivitiesAsRead();
+      showToast("Semua aktivitas ditandai sudah dibaca.");
+    } catch {
+      showToast("Gagal menandai semua aktivitas sebagai dibaca.", "error");
+    } finally {
+      setIsMarkingAllRead(false);
+    }
   };
 
   const viewFoodScan = (scanId: string) => {
@@ -176,7 +196,7 @@ export default function ActivityLogPage({ initialPatientName = "", initialCatego
       <DashboardPageHeader
         title="Log Aktivitas"
         action={!readOnly && hasUnread && (
-          <Button size="sm" icon={<CheckCheck size={16} />} onClick={markAllAsRead}>
+          <Button size="sm" icon={<CheckCheck size={16} />} onClick={markAllAsRead} loading={isMarkingAllRead}>
             Tandai Semua Dibaca
           </Button>
         )}
@@ -219,6 +239,7 @@ export default function ActivityLogPage({ initialPatientName = "", initialCatego
           readOnly={readOnly}
           onLoadMore={() => setVisibleCount((currentCount) => currentCount + loadBatchSize)}
           onMarkRead={markAsRead}
+          processingActivityId={processingActivityId}
           onViewDetail={setSelectedActivity}
         />}
       </motion.div>

@@ -3,7 +3,6 @@
 import { useDeferredValue, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import axios from "axios";
 import { motion } from "motion/react";
 import { AlertTriangle, Check, CheckCheck, Shuffle, Trash2, UserRound } from "lucide-react";
 import DashboardPageHeader from "@/components/dashboard/DashboardPageHeader";
@@ -19,6 +18,7 @@ import SummaryCardGrid from "@/components/ui/SummaryCardGrid";
 import { getActivityDateKey } from "@/helpers/activityLogs";
 import { getAverageAdherence, getNurseInitials } from "@/helpers/nurses";
 import { getDashboardRole, isOperationalAdminRole } from "@/components/dashboard/navigation";
+import { getApiErrorMessage } from "@/lib/apiErrors";
 import type { ActivityCategory, ActivityLogRecord } from "@/lib/mocks/activityLogs";
 import type { PatientRecord } from "@/lib/mocks/patients";
 import { deactivateNurseViaApi } from "@/lib/nurseApi";
@@ -35,11 +35,6 @@ interface NurseDetailPageProps {
 }
 
 const loadBatchSize = 6;
-
-const getApiErrorMessage = (error: unknown) => {
-  if (!axios.isAxiosError(error)) return null;
-  return error.response?.data?.message || null;
-};
 
 export default function NurseDetailPage({ nurseId }: NurseDetailPageProps) {
   const router = useRouter();
@@ -147,8 +142,7 @@ export default function NurseDetailPage({ nurseId }: NurseDetailPageProps) {
     try {
       await Promise.all(selectedPatientIds.map((patientId) => assignPatientToNurseViaApi(patientId, targetNurseId)));
     } catch (error) {
-      const message = getApiErrorMessage(error);
-      showError(message || "Gagal memindahkan pasien dari API.");
+      showError(getApiErrorMessage(error, "Gagal memindahkan pasien dari API."));
       return;
     }
 
@@ -183,8 +177,7 @@ export default function NurseDetailPage({ nurseId }: NurseDetailPageProps) {
     try {
       await deactivateNurseViaApi(nurse.id);
     } catch (error) {
-      const message = getApiErrorMessage(error);
-      showError(message || "Gagal menonaktifkan perawat dari API.");
+      showError(getApiErrorMessage(error, "Gagal menonaktifkan perawat dari API."));
       return;
     } finally {
       setIsDeleting(false);
