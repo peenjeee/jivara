@@ -46,7 +46,7 @@ export default function PatientProfileHero({ patient }: PatientProfileHeroProps)
         </div>
 
         <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <DetailItem label="Umur / Gender" value={`${patient.age} tahun, ${patient.gender}`} />
+          <DetailItem label="Umur, Gender" value={`${patient.age} tahun, ${patient.gender}`} />
           <DetailItem label="Telepon" value={patient.phone ?? "Belum tersedia"} />
           <DetailItem label="Email" value={patient.email ?? "Belum tersedia"} />
           <DetailItem label="Alamat" value={patient.address ?? "Belum tersedia"} />

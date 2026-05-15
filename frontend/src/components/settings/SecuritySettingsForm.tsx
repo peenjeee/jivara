@@ -4,6 +4,7 @@ import { useState, type FormEvent } from "react";
 import { Lock, Save } from "lucide-react";
 import AuthInput from "@/components/ui/AuthInput";
 import Button from "@/components/ui/Button";
+import { getApiErrorMessage } from "@/lib/apiErrors";
 import { changePasswordViaApi } from "@/lib/profileApi";
 import { showToast, showWarning } from "@/lib/swal";
 import { useAuthStore } from "@/store/auth";
@@ -47,8 +48,8 @@ export default function SecuritySettingsForm() {
       setNewPassword("");
       setConfirmPassword("");
       showToast("Kata sandi berhasil diperbarui.");
-    } catch {
-      showWarning("Kata sandi gagal diperbarui. Pastikan kata sandi saat ini benar.");
+    } catch (error) {
+      showWarning(getApiErrorMessage(error, "Kata sandi gagal diperbarui. Pastikan kata sandi saat ini benar."));
     } finally {
       setIsSaving(false);
     }

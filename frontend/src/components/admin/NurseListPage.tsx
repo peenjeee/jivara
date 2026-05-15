@@ -2,7 +2,6 @@
 
 import { useDeferredValue, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import axios from "axios";
 import { motion } from "motion/react";
 import { Edit3, Eye, Power, Plus, Trash2 } from "lucide-react";
 import DashboardPageHeader from "@/components/dashboard/DashboardPageHeader";
@@ -16,6 +15,7 @@ import ToolbarCard from "@/components/ui/ToolbarCard";
 import PatientPagination from "@/components/patients/PatientPagination";
 import { getNurseInitials } from "@/helpers/nurses";
 import { getDashboardRole, isOperationalAdminRole } from "@/components/dashboard/navigation";
+import { getApiErrorMessage } from "@/lib/apiErrors";
 import type { NurseRecord, NurseStatus } from "@/lib/mocks/nurses";
 import { createNurseViaApi, deactivateNurseViaApi, getNursesFromApi, updateNurseViaApi } from "@/lib/nurseApi";
 import { showConfirm, showError, showToast, showWarning } from "@/lib/swal";
@@ -33,11 +33,6 @@ const filters: { readonly label: string; readonly value: NurseFilter }[] = [
 ];
 
 const pageSize = 10;
-
-const getApiErrorMessage = (error: unknown) => {
-  if (!axios.isAxiosError(error)) return null;
-  return error.response?.data?.message || null;
-};
 
 export default function NurseListPage() {
   const router = useRouter();
@@ -99,8 +94,7 @@ export default function NurseListPage() {
       const createdNurse = await createNurseViaApi(values);
       setNurses([createdNurse, ...nurses]);
     } catch (error) {
-      const message = getApiErrorMessage(error);
-      showError(message || "Gagal menambahkan perawat dari API.");
+      showError(getApiErrorMessage(error, "Gagal menambahkan perawat dari API."));
       return;
     }
 
@@ -115,8 +109,7 @@ export default function NurseListPage() {
       const updatedNurse = await updateNurseViaApi(editingNurse.id, values);
       setNurses(nurses.map((nurse) => nurse.id === editingNurse.id ? { ...updatedNurse, temporaryPassword: values.password ? true : nurse.temporaryPassword } : nurse));
     } catch (error) {
-      const message = getApiErrorMessage(error);
-      showError(message || "Gagal memperbarui perawat dari API.");
+      showError(getApiErrorMessage(error, "Gagal memperbarui perawat dari API."));
       return;
     }
 
@@ -143,8 +136,7 @@ export default function NurseListPage() {
       });
       setNurses(nurses.map((item) => item.id === nurse.id ? { ...updatedNurse, temporaryPassword: item.temporaryPassword } : item));
     } catch (error) {
-      const message = getApiErrorMessage(error);
-      showError(message || "Gagal mengubah status perawat dari API.");
+      showError(getApiErrorMessage(error, "Gagal mengubah status perawat dari API."));
       return;
     } finally {
       setProcessingAction(null);
@@ -170,8 +162,7 @@ export default function NurseListPage() {
       await deactivateNurseViaApi(nurse.id);
       setNurses(nurses.map((item) => item.id === nurse.id ? { ...item, status: "Nonaktif" } : item));
     } catch (error) {
-      const message = getApiErrorMessage(error);
-      showError(message || "Gagal menonaktifkan perawat dari API.");
+      showError(getApiErrorMessage(error, "Gagal menonaktifkan perawat dari API."));
       return;
     } finally {
       setProcessingAction(null);

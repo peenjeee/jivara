@@ -15,25 +15,6 @@ interface PublicStatsResponse {
   };
 }
 
-const fallbackStats: SummaryCardItem[] = [
-  {
-    label: "Total Semua Perawat",
-    value: "-",
-    helper: "",
-    tone: "safe",
-    color: "emerald",
-    icon: HeartPulse,
-  },
-  {
-    label: "Total Semua Pasien",
-    value: "-",
-    helper: "",
-    tone: "safe",
-    color: "leaf",
-    icon: UsersRound,
-  },
-];
-
 const getPublicStatsUrls = () => {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL;
   if (apiUrl) return [`${apiUrl.replace(/\/$/, "")}/public/stats`];
@@ -43,7 +24,9 @@ const getPublicStatsUrls = () => {
 };
 
 export default function Stats() {
-  const [stats, setStats] = useState(fallbackStats);
+  const [stats, setStats] = useState<SummaryCardItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [hasError, setHasError] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -55,13 +38,34 @@ export default function Stats() {
       .then((response) => {
         if (!isMounted) return;
         const { totalNurses, totalPatients } = response.data;
+        setHasError(false);
         setStats([
-          { ...fallbackStats[0], value: `+${totalNurses}` },
-          { ...fallbackStats[1], value: `+${totalPatients}` },
+          {
+            label: "Total Semua Perawat",
+            value: `+${totalNurses}`,
+            helper: "",
+            tone: "safe",
+            color: "emerald",
+            icon: HeartPulse,
+          },
+          {
+            label: "Total Semua Pasien",
+            value: `+${totalPatients}`,
+            helper: "",
+            tone: "safe",
+            color: "leaf",
+            icon: UsersRound,
+          },
         ]);
       })
       .catch(() => {
-        if (isMounted) setStats(fallbackStats);
+        if (isMounted) {
+          setHasError(true);
+          setStats([]);
+        }
+      })
+      .finally(() => {
+        if (isMounted) setIsLoading(false);
       });
 
     return () => {
@@ -77,9 +81,27 @@ export default function Stats() {
         </h2>
       </LandingReveal>
 
-      <LandingSummaryGrid stats={stats} />
+      {isLoading && <LandingStatsSkeleton />}
+      {!isLoading && !hasError && <LandingSummaryGrid stats={stats} />}
+      {!isLoading && hasError && (
+        <div className="mx-auto mt-8 max-w-xl rounded-[28px] bg-white px-6 py-8 text-center shadow-[0_10px_30px_rgba(15,23,42,0.08)]">
+          <p className="text-sm font-bold leading-6 text-muted">Statistik publik belum bisa dimuat dari API.</p>
+        </div>
+      )}
 
       <SystemDemoVideo />
     </Section>
+  );
+}
+
+function LandingStatsSkeleton() {
+  return (
+    <div className="mx-auto mt-8 grid w-full max-w-3xl gap-4 sm:grid-cols-2">
+      {["nurses", "patients"].map((item) => (
+        <div key={item} className="h-36 animate-pulse rounded-[28px] bg-white shadow-[0_10px_30px_rgba(15,23,42,0.08)]">
+          <div className="h-full rounded-[28px] bg-surface/70" />
+        </div>
+      ))}
+    </div>
   );
 }

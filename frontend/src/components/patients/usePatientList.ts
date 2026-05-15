@@ -1,7 +1,7 @@
 "use client";
 
 import { useDeferredValue, useEffect, useMemo, useState } from "react";
-import axios from "axios";
+import { getApiErrorMessage } from "@/lib/apiErrors";
 import type { PatientRecord } from "@/lib/mocks/patients";
 import { createPatientViaApi, deactivatePatientViaApi, getPatientsFromApi, updatePatientViaApi } from "@/lib/patientApi";
 import { showConfirm, showError, showToast } from "@/lib/swal";
@@ -11,12 +11,6 @@ import type { PatientAction } from "./PatientActions";
 import type { PatientFilter } from "./PatientToolbar";
 
 const pageSize = 10;
-
-const getApiErrorMessage = (error: unknown) => {
-  if (!axios.isAxiosError(error)) return null;
-  if (error.response?.status === 401) return "Sesi login kedaluwarsa. Silakan login ulang.";
-  return error.response?.data?.message || null;
-};
 
 export function usePatientList(onViewPatient: (patientId: string) => void) {
   const nurses = useNurseStore((state) => state.nurses);
@@ -82,7 +76,7 @@ export function usePatientList(onViewPatient: (patientId: string) => void) {
       const createdPatient = await createPatientViaApi(values);
       setPatientRecords((currentPatients) => [createdPatient, ...currentPatients]);
     } catch (error) {
-      showError(getApiErrorMessage(error) || "Gagal menambahkan pasien dari API.");
+      showError(getApiErrorMessage(error, "Gagal menambahkan pasien dari API."));
       return;
     }
 
@@ -98,7 +92,7 @@ export function usePatientList(onViewPatient: (patientId: string) => void) {
       const updatedPatient = await updatePatientViaApi(editingPatient.id, values);
       setPatientRecords((currentPatients) => currentPatients.map((patient) => patient.id === editingPatient.id ? updatedPatient : patient));
     } catch (error) {
-      showError(getApiErrorMessage(error) || "Gagal memperbarui pasien dari API.");
+      showError(getApiErrorMessage(error, "Gagal memperbarui pasien dari API."));
       return;
     }
 
@@ -121,7 +115,7 @@ export function usePatientList(onViewPatient: (patientId: string) => void) {
         await deactivatePatientViaApi(patient.id);
         setPatientRecords((currentPatients) => currentPatients.filter((currentPatient) => currentPatient.id !== patient.id));
       } catch (error) {
-        showError(getApiErrorMessage(error) || "Gagal menghapus pasien dari API.");
+        showError(getApiErrorMessage(error, "Gagal menghapus pasien dari API."));
         return;
       } finally {
         setProcessingAction(null);

@@ -41,16 +41,19 @@ describe("patientDashboardApi", () => {
 
   it("loads patient dashboard data and filters schedules to current patient", async () => {
     mockedGet.mockResolvedValueOnce({ data: { data: [{ id: "log-1", scheduleId: "schedule-1", patientId: "patient-1", drugName: "Metformin", status: "confirmed", scheduledTime: "2026-05-09T08:00:00.000Z" }] } });
+    mockedGet.mockResolvedValueOnce({ data: { data: { adherenceRate: 100, totalScheduled: 1, dailyBreakdown: [{ date: "2026-05-09", scheduled: 1, confirmed: 1 }] } } });
 
     const data = await getPatientDashboardData();
 
     expect(mockedGet).toHaveBeenCalledWith("/medication-logs", { params: { patient_id: "patient-1", limit: 100 } });
     expect(data.schedules).toEqual([schedule]);
     expect(data.medicationLogs).toHaveLength(1);
+    expect(data.adherenceStats.adherenceRate).toBe(100);
   });
 
   it("maps medication logs to patient activities", async () => {
     mockedGet.mockResolvedValueOnce({ data: { data: [{ id: "log-1", scheduleId: "schedule-1", patientId: "patient-1", drugName: "Metformin", status: "missed", scheduledTime: "2026-05-09T08:00:00.000Z" }] } });
+    mockedGet.mockResolvedValueOnce({ data: { data: { adherenceRate: 0, totalScheduled: 1, dailyBreakdown: [{ date: "2026-05-09", scheduled: 1, confirmed: 0 }] } } });
 
     const activities = await getPatientActivitiesFromApi();
 

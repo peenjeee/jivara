@@ -56,6 +56,7 @@ describe("patientApi", () => {
 
   it("maps patient list response", async () => {
     mockedGet.mockResolvedValueOnce({ data: { data: [patientResponse] } });
+    mockedGet.mockResolvedValueOnce({ data: { data: { adherenceRate: 100, totalScheduled: 0 } } });
 
     const patients = await getPatientsFromApi();
 
@@ -100,6 +101,7 @@ describe("patientApi", () => {
 
   it("loads patients assigned to a nurse with a server-side filter", async () => {
     mockedGet.mockResolvedValueOnce({ data: { data: [{ ...patientResponse, id: "patient-1", assignedNurseId: "nurse-1" }] } });
+    mockedGet.mockResolvedValueOnce({ data: { data: { adherenceRate: 100, totalScheduled: 0 } } });
 
     const patients = await getPatientsAssignedToNurseFromApi("nurse-1");
 

@@ -76,9 +76,9 @@ export default function PatientActivityLogPage({ initialCategory }: PatientActiv
     const todayTotal = patientActivities.filter((activity) => getDateKey(new Date(activity.timestamp)) === todayKey).length;
 
     return [
-      { label: "Belum Dibaca", value: String(unread), tone: "neutral" as const, color: "pine" as const, icon: Bell },
-      { label: "Peringatan/Kritis", value: String(warningCritical), tone: "critical" as const, color: "lime" as const, icon: AlertTriangle },
-      { label: "Total Hari Ini", value: String(todayTotal), tone: "safe" as const, color: "leaf" as const, icon: ClipboardList },
+      { label: "Notifikasi Belum Dibaca", value: String(unread), tone: "neutral" as const, color: "pine" as const, icon: Bell },
+      { label: "Notifikasi Peringatan", value: String(warningCritical), tone: "critical" as const, color: "lime" as const, icon: AlertTriangle },
+      { label: "Total Aktivitas Hari Ini", value: String(todayTotal), tone: "safe" as const, color: "leaf" as const, icon: ClipboardList },
     ];
   }, [patientActivities, todayKey]);
 

@@ -44,6 +44,7 @@ const mapSchedule = (schedule: ScheduleResponse, patient?: PatientRecord): Medic
   patientId: schedule.patientId,
   patientName: patient?.name ?? "Pasien tidak diketahui",
   patientAvatar: patient?.avatar ?? "PX",
+  patientStatus: patient?.status,
   medicineName: schedule.drugName,
   dose: schedule.dosage,
   medicineForm: "Tablet",

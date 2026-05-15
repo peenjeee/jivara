@@ -1,5 +1,4 @@
 import type { MedicationScheduleRecord, MedicationScheduleStatus, PatientScheduleGroup } from "@/lib/mocks/schedules";
-import { patients } from "@/lib/mocks/patients";
 
 const defaultLowStockThreshold = 5;
 
@@ -22,13 +21,12 @@ export function groupSchedulesByPatient(records: readonly MedicationScheduleReco
 
   return Array.from(groups.values()).map((groupSchedules) => {
     const [firstSchedule] = groupSchedules;
-    const patient = patients.find((currentPatient) => currentPatient.id === firstSchedule.patientId);
 
     return {
       patientId: firstSchedule.patientId,
       patientName: firstSchedule.patientName,
       patientAvatar: firstSchedule.patientAvatar,
-      patientStatus: patient?.status ?? "On Ideal Schedule",
+      patientStatus: firstSchedule.patientStatus ?? "On Ideal Schedule",
       schedules: groupSchedules,
       summaryStatus: getSummaryStatus(groupSchedules),
       nextSchedule: getNextScheduleLabel(groupSchedules),

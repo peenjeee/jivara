@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { motion } from "motion/react";
-import { CalendarClock, UserRound, UsersRound } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
 import { ActivityCategoryBadge, ActivitySeverityBadge } from "@/components/activity-log/ActivityBadges";
 import DashboardPageHeader from "@/components/dashboard/DashboardPageHeader";
 import DashboardPageShell from "@/components/dashboard/DashboardPageShell";
@@ -22,12 +22,6 @@ import type { ActivityLogRecord } from "@/lib/mocks/activityLogs";
 import type { PatientRecord } from "@/lib/mocks/patients";
 import { useNurseStore } from "@/store/nurses";
 import NurseStatusBadge from "./NurseStatusBadge";
-
-const getFallbackStats = (totalNurses: number): SummaryCardItem[] => [
-  { label: "Total Perawat", value: String(totalNurses), tone: "neutral", color: "pine", icon: UsersRound },
-  { label: "Total Pasien", value: "0", tone: "safe", color: "leaf", icon: UserRound },
-  { label: "Jadwal Aktif", value: "0", tone: "neutral", color: "lime", icon: CalendarClock },
-];
 
 export default function AdminDashboardPage() {
   const nurses = useNurseStore((state) => state.nurses);
@@ -48,8 +42,9 @@ export default function AdminDashboardPage() {
   const riskyPatients = patients.filter((patient) => patient.status !== "On Ideal Schedule");
   const priorityActivities = activities.filter((activity) => activity.severity === "Kritis" || activity.severity === "Peringatan" || activity.category === "Administrasi");
 
-  const [stats, setStats] = useState<SummaryCardItem[]>(() => getFallbackStats(0));
+  const [stats, setStats] = useState<SummaryCardItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [hasLoadError, setHasLoadError] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -59,20 +54,21 @@ export default function AdminDashboardPage() {
         if (!isMounted) return;
         const [apiNurses, schedules] = await Promise.all([getNursesFromApi(), getSchedulesFromApi(apiPatients)]);
         if (!isMounted) return;
+        setHasLoadError(false);
         setNurses(apiNurses);
         setPatients(apiPatients);
         setActivities([...alertActivities, ...auditActivities]);
-        const nextStats = data.stats.length > 0 ? data.stats : getFallbackStats(0);
         const activeSchedules = schedules.filter((schedule) => schedule.status === "Aktif").length;
-        setStats(nextStats.map((item) => {
-          if (item.label === "Total Perawat") return { ...item, value: String(apiNurses.length) };
-          if (item.label === "Jadwal Aktif") return { ...item, value: String(activeSchedules) };
+        setStats(data.stats.map((item) => {
+          if (item.label.includes("Perawat")) return { ...item, value: String(apiNurses.length) };
+          if (item.label.includes("Jadwal")) return { ...item, value: String(activeSchedules) };
           return item;
         }));
       })
       .catch(() => {
         if (!isMounted) return;
-        setStats(getFallbackStats(nurses.length));
+        setHasLoadError(true);
+        setStats([]);
         setPatients([]);
         setActivities([]);
       })
@@ -90,7 +86,14 @@ export default function AdminDashboardPage() {
       <DashboardPageHeader title="Dashboard Admin" />
       {isLoading ? <SummaryCardsSkeleton /> : <SummaryCardGrid stats={stats} />}
 
-      {inactiveNursesWithPatients.length > 0 && (
+      {!isLoading && hasLoadError && (
+        <section className="mt-6 rounded-[32px] bg-white p-8 text-center shadow-[0_10px_30px_rgba(15,23,42,0.08)]">
+          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-warning/10 text-warning-dark"><AlertTriangle size={22} /></div>
+          <p className="text-sm font-bold text-muted">Data dashboard admin belum bisa dimuat dari API.</p>
+        </section>
+      )}
+
+      {!hasLoadError && inactiveNursesWithPatients.length > 0 && (
         <motion.section className="mt-6 rounded-[24px] bg-warning/10 px-5 py-4 shadow-[0_10px_30px_rgba(15,23,42,0.04)] sm:px-6" initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1], delay: 0.2 }}>
           <p className="text-sm font-extrabold leading-6 text-warning-dark sm:text-base">
             Perawat nonaktif masih menangani {inactiveNursesWithPatients.reduce((total, item) => total + item.patients.length, 0)} pasien aktif. Perlu untuk melakukan reassign pasien.
@@ -98,7 +101,7 @@ export default function AdminDashboardPage() {
         </motion.section>
       )}
 
-      <div className="mt-6 grid gap-6 xl:grid-cols-3">
+      {!hasLoadError && <div className="mt-6 grid gap-6 xl:grid-cols-3">
         <AdminPanel title="Perawat Perlu Tindak Lanjut" href="/nurses">
           {isLoading ? <ActivityDataSkeleton rows={4} /> : nurseFollowUps.slice(0, 4).map(({ nurse, assignedPatients, riskyPatients }, index) => (
             <Link key={`dashboard-nurse-${nurse.id}-${index}`} href={`/nurses/${encodeURIComponent(nurse.id)}`} className="flex items-center justify-between gap-4 rounded-2xl bg-surface px-4 py-3 transition-colors hover:bg-primary/5">
@@ -140,7 +143,7 @@ export default function AdminDashboardPage() {
           ))}
           {!isLoading && priorityActivities.length === 0 && <EmptyInsight message="Tidak ada aktivitas prioritas." />}
         </AdminPanel>
-      </div>
+      </div>}
     </DashboardPageShell>
   );
 }

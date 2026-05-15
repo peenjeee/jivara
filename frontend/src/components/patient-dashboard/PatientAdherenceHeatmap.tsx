@@ -2,15 +2,18 @@
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { motion } from "motion/react";
+import type { PatientAdherenceDayResponse } from "@/lib/patientDashboardApi";
 
 interface PatientAdherenceHeatmapProps {
-  readonly adherence: number;
+  readonly dailyBreakdown: readonly PatientAdherenceDayResponse[];
 }
 
 interface HeatmapDay {
   readonly date: Date;
   readonly dateKey: string;
   readonly level: number;
+  readonly total: number;
+  readonly confirmed: number;
   readonly isFuture: boolean;
 }
 
@@ -25,9 +28,10 @@ const monthFormatter = new Intl.DateTimeFormat("id-ID", { month: "short" });
 const dateFormatter = new Intl.DateTimeFormat("id-ID", { day: "2-digit", month: "long", year: "numeric" });
 const levelClasses = ["bg-surface", "bg-primary/15", "bg-primary/30", "bg-primary/55", "bg-primary"];
 
-export default function PatientAdherenceHeatmap({ adherence }: PatientAdherenceHeatmapProps) {
+export default function PatientAdherenceHeatmap({ dailyBreakdown }: PatientAdherenceHeatmapProps) {
   const today = useMemo(() => new Date(), []);
-  const weeks = useMemo(() => getHeatmapWeeks(today, adherence), [today, adherence]);
+  const dailyStats = useMemo(() => getDailyAdherenceStats(dailyBreakdown), [dailyBreakdown]);
+  const weeks = useMemo(() => getHeatmapWeeks(today, dailyStats), [today, dailyStats]);
   const monthLabels = useMemo(() => getMonthLabels(weeks), [weeks]);
   const cellSize = 20;
   const cellGap = 4;
@@ -107,7 +111,7 @@ export default function PatientAdherenceHeatmap({ adherence }: PatientAdherenceH
     >
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h2 className="font-display text-xl font-extrabold tracking-[-0.04em] text-text-main sm:text-2xl">Riwayat Kepatuhan</h2>
+          <h2 className="font-display text-xl font-extrabold tracking-[-0.04em] text-text-main sm:text-2xl">Riwayat Kepatuhan Saya</h2>
         </div>
       </div>
 
@@ -190,7 +194,7 @@ function HeatmapLegend() {
 }
 
 function HeatmapDayCell({ day, sizeClass, onShow, onHide }: { readonly day: HeatmapDay; readonly sizeClass: string; readonly onShow: (label: string, rect: DOMRect) => void; readonly onHide: () => void }) {
-  const label = `${dateFormatter.format(day.date)} - ${day.isFuture ? "Belum ada data" : getLevelLabel(day.level)}`;
+  const label = getTooltipLabel(day);
   const surfaceClass = day.isFuture ? "bg-surface" : levelClasses[day.level];
 
   return (
@@ -208,7 +212,7 @@ function HeatmapDayCell({ day, sizeClass, onShow, onHide }: { readonly day: Heat
   );
 }
 
-function getHeatmapWeeks(today: Date, adherence: number) {
+function getHeatmapWeeks(today: Date, dailyStats: ReadonlyMap<string, { readonly total: number; readonly confirmed: number }>) {
   const end = new Date(today.getFullYear(), today.getMonth(), today.getDate());
   const start = new Date(end);
   start.setDate(end.getDate() - 364 - end.getDay());
@@ -216,12 +220,16 @@ function getHeatmapWeeks(today: Date, adherence: number) {
   const days: HeatmapDay[] = Array.from({ length: 53 * 7 }, (_, index) => {
     const date = new Date(start);
     date.setDate(start.getDate() + index);
+    const dateKey = getDateKey(date);
     const isFuture = date > end;
+    const stats = dailyStats.get(dateKey);
 
     return {
       date,
-      dateKey: getDateKey(date),
-      level: isFuture ? 0 : getAdherenceLevel(date, adherence),
+      dateKey,
+      level: isFuture ? 0 : getAdherenceLevel(stats),
+      total: stats?.total ?? 0,
+      confirmed: stats?.confirmed ?? 0,
       isFuture,
     };
   });
@@ -245,23 +253,32 @@ function getMonthLabels(weeks: HeatmapDay[][]) {
 }
 
 
-function getAdherenceLevel(date: Date, adherence: number) {
-  const score = (date.getDate() * 17 + (date.getMonth() + 1) * 11 + date.getFullYear()) % 100;
-  const adjusted = Math.min(100, Math.max(0, adherence - 25 + score / 2));
+function getDailyAdherenceStats(days: readonly PatientAdherenceDayResponse[]) {
+  return days.reduce<Map<string, { total: number; confirmed: number }>>((statsByDate, day) => {
+    statsByDate.set(day.date, {
+      total: day.scheduled,
+      confirmed: day.confirmed,
+    });
+    return statsByDate;
+  }, new Map());
+}
 
-  if (adjusted >= 88) return 4;
-  if (adjusted >= 72) return 3;
-  if (adjusted >= 55) return 2;
-  if (adjusted >= 35) return 1;
+function getAdherenceLevel(stats: { readonly total: number; readonly confirmed: number } | undefined) {
+  if (!stats || stats.total === 0) return 0;
+
+  const percentage = Math.round((stats.confirmed / stats.total) * 100);
+  if (percentage >= 90) return 4;
+  if (percentage >= 75) return 3;
+  if (percentage >= 50) return 2;
+  if (percentage > 0) return 1;
   return 0;
 }
 
-function getLevelLabel(level: number) {
-  if (level >= 4) return "Kepatuhan sangat baik";
-  if (level === 3) return "Kepatuhan baik";
-  if (level === 2) return "Kepatuhan cukup";
-  if (level === 1) return "Kepatuhan rendah";
-  return "Tidak ada konfirmasi";
+function getTooltipLabel(day: HeatmapDay) {
+  if (day.isFuture || day.total === 0) return `${dateFormatter.format(day.date)} - Belum ada data`;
+
+  const percentage = Math.round((day.confirmed / day.total) * 100);
+  return `${dateFormatter.format(day.date)} - ${percentage}% (${day.confirmed}/${day.total} obat dikonfirmasi)`;
 }
 
 function getDateKey(date: Date) {

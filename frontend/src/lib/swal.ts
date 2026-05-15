@@ -17,8 +17,8 @@ const getSwal = () => {
 const popupClass = 'rounded-[32px] border border-line bg-white px-6 py-7 text-text-main shadow-[0_24px_80px_rgba(15,23,42,0.22)]';
 const titleClass = 'font-display text-2xl font-extrabold tracking-[-0.04em] text-text-main';
 const textClass = 'text-sm font-semibold leading-6 text-muted';
-const confirmButtonClass = 'mx-1 inline-flex items-center justify-center rounded-full border border-white/10 bg-primary px-7 py-3 text-[13px] font-bold uppercase leading-none tracking-[0.1em] text-white transition-colors hover:bg-primary-hover focus:outline-none focus:ring-2 focus:ring-primary/25';
-const cancelButtonClass = 'mx-1 inline-flex items-center justify-center rounded-full bg-surface px-7 py-3 text-[13px] font-bold uppercase leading-none tracking-[0.1em] text-text-main transition-colors hover:bg-line focus:outline-none focus:ring-2 focus:ring-primary/20';
+const confirmButtonClass = 'mx-1 inline-flex items-center justify-center rounded-full border-0 bg-primary px-7 py-3 text-[13px] font-bold uppercase leading-none tracking-[0.1em] text-white shadow-none outline-none transition-colors hover:bg-primary-hover focus:outline-none focus:ring-0';
+const cancelButtonClass = 'mx-1 inline-flex items-center justify-center rounded-full border-0 bg-surface px-7 py-3 text-[13px] font-bold uppercase leading-none tracking-[0.1em] text-text-main shadow-none outline-none transition-colors hover:bg-line focus:outline-none focus:ring-0';
 const actionsClass = 'mt-7 flex flex-wrap items-center justify-center gap-3';
 
 const createToast = (swal: ReactSwal) => swal.mixin({

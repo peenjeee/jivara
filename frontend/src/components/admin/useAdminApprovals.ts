@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useDeferredValue, useEffect, useMemo, useState } from "react";
+import { getApiErrorMessage } from "@/lib/apiErrors";
 import api from "@/lib/axios";
 import { showConfirm, showError, showToast } from "@/lib/swal";
 import type { User } from "@/types/auth";
@@ -19,6 +20,14 @@ export const pageSize = 10;
 
 const removePendingUser = (users: User[], userId: string) => users.filter((item) => item.id !== userId);
 
+const getSummaryFromUsers = (users: User[]): AdminApprovalSummary => users.reduce<AdminApprovalSummary>((summary, user) => {
+  const status = user.accountStatus ?? "active";
+  if (status === "pending") return { ...summary, pending: summary.pending + 1 };
+  if (status === "rejected") return { ...summary, rejected: summary.rejected + 1 };
+  if (status === "suspended") return { ...summary, suspended: summary.suspended + 1 };
+  return { ...summary, active: summary.active + 1 };
+}, emptySummary);
+
 export function useAdminApprovals(canLoad: boolean) {
   const [approvals, setApprovals] = useState<User[]>([]);
   const [summary, setSummary] = useState<AdminApprovalSummary>(emptySummary);
@@ -26,6 +35,7 @@ export function useAdminApprovals(canLoad: boolean) {
   const [filter, setFilter] = useState<ApprovalFilter>("pending");
   const [currentPage, setCurrentPage] = useState(1);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [rejectingUser, setRejectingUser] = useState<User | null>(null);
   const deferredSearch = useDeferredValue(search);
@@ -47,10 +57,15 @@ export function useAdminApprovals(canLoad: boolean) {
     setLoading(true);
     try {
       const response = await api.get("/auth/admin-approvals");
-      setApprovals(response.data.data.users ?? []);
-      setSummary(response.data.data.summary ?? emptySummary);
-    } catch {
-      showError("Gagal memuat daftar pengajuan admin.");
+      const users = response.data.data.users ?? [];
+      setLoadError(false);
+      setApprovals(users);
+      setSummary(response.data.data.summary ?? getSummaryFromUsers(users));
+    } catch (error) {
+      setLoadError(true);
+      setApprovals([]);
+      setSummary(emptySummary);
+      showError(getApiErrorMessage(error, "Gagal memuat daftar pengajuan admin."));
     } finally {
       setLoading(false);
     }
@@ -77,8 +92,8 @@ export function useAdminApprovals(canLoad: boolean) {
       setApprovals((current) => removePendingUser(current, user.id));
       setSummary((current) => ({ ...current, pending: Math.max(0, current.pending - 1), active: current.active + 1 }));
       showToast("Admin berhasil disetujui.", "success");
-    } catch {
-      showError("Gagal menyetujui pengajuan admin.");
+    } catch (error) {
+      showError(getApiErrorMessage(error, "Gagal menyetujui pengajuan admin."));
     } finally {
       setProcessingId(null);
     }
@@ -93,8 +108,8 @@ export function useAdminApprovals(canLoad: boolean) {
       setSummary((current) => ({ ...current, pending: Math.max(0, current.pending - 1), rejected: current.rejected + 1 }));
       setRejectingUser(null);
       showToast("Pengajuan admin ditolak.");
-    } catch {
-      showError("Gagal menolak pengajuan admin.");
+    } catch (error) {
+      showError(getApiErrorMessage(error, "Gagal menolak pengajuan admin."));
     } finally {
       setProcessingId(null);
     }
@@ -111,8 +126,8 @@ export function useAdminApprovals(canLoad: boolean) {
         return { ...current, rejected: Math.max(0, current.rejected - 1), pending: current.pending + 1 };
       });
       showToast(endpoint === "activate" ? "Admin berhasil diaktifkan kembali." : endpoint === "suspend" ? "Admin berhasil disuspend." : "Pengajuan admin berhasil dipulihkan.", "success");
-    } catch {
-      showError(endpoint === "activate" ? "Gagal mengaktifkan admin." : endpoint === "suspend" ? "Gagal suspend admin." : "Gagal memulihkan pengajuan admin.");
+    } catch (error) {
+      showError(getApiErrorMessage(error, endpoint === "activate" ? "Gagal mengaktifkan admin." : endpoint === "suspend" ? "Gagal suspend admin." : "Gagal memulihkan pengajuan admin."));
     } finally {
       setProcessingId(null);
     }
@@ -141,6 +156,7 @@ export function useAdminApprovals(canLoad: boolean) {
     handleRestore,
     handleSuspend,
     loading,
+    loadError,
     paginatedApprovals,
     processingId,
     rejectingUser,

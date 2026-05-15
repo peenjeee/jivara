@@ -54,9 +54,15 @@ export default function AdminApprovalsPage() {
   return (
     <DashboardPageShell>
       <DashboardPageHeader title="Persetujuan Admin" />
-      {approvals.loading ? <SummaryCardsSkeleton count={4} /> : <SummaryCardGrid stats={stats} desktopColumns={4} />}
+      {approvals.loading ? <SummaryCardsSkeleton count={4} /> : <SummaryCardGrid stats={approvals.loadError ? [] : stats} desktopColumns={4} />}
 
-      <motion.div className="mt-6" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1], delay: 0.12 }}>
+      {!approvals.loading && approvals.loadError && (
+        <section className="mt-6 rounded-[32px] bg-white p-8 text-center shadow-[0_10px_30px_rgba(15,23,42,0.08)]">
+          <p className="text-sm font-bold text-muted">Data persetujuan admin belum bisa dimuat dari API.</p>
+        </section>
+      )}
+
+      {!approvals.loadError && <motion.div className="mt-6" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1], delay: 0.12 }}>
         {approvals.loading ? <ToolbarSkeleton /> : <ToolbarCard>
           <div className="grid gap-3 lg:grid-cols-[1fr_auto] lg:items-center">
             <SearchField id="adminApprovalSearch" value={approvals.search} placeholder="Cari akun admin ..." onChange={(value) => { approvals.setSearch(value); approvals.setCurrentPage(1); }} />
@@ -64,9 +70,9 @@ export default function AdminApprovalsPage() {
           </div>
           <FilterPills options={approvalFilters} activeValue={approvals.filter} onChange={(value) => { approvals.setFilter(value); approvals.setCurrentPage(1); }} className="mt-4" />
         </ToolbarCard>}
-      </motion.div>
+      </motion.div>}
 
-      <motion.section className="mt-6 overflow-hidden rounded-3xl bg-white shadow-[0_10px_30px_rgba(15,23,42,0.08)]" initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1], delay: 0.2 }}>
+      {!approvals.loadError && <motion.section className="mt-6 overflow-hidden rounded-3xl bg-white shadow-[0_10px_30px_rgba(15,23,42,0.08)]" initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1], delay: 0.2 }}>
         {approvals.loading ? <ApprovalSkeleton /> : <ApprovalList approvals={approvals.paginatedApprovals} activeFilter={approvals.filter} processingId={approvals.processingId} onApprove={approvals.handleApprove} onActivate={approvals.handleActivate} onSuspend={approvals.handleSuspend} onRestore={approvals.handleRestore} onReject={approvals.setRejectingUser} />}
         {!approvals.loading && <PatientPagination
           currentPage={approvals.currentPage}
@@ -76,7 +82,7 @@ export default function AdminApprovalsPage() {
           itemLabel="admin"
           onPageChange={approvals.setCurrentPage}
         />}
-      </motion.section>
+      </motion.section>}
 
       <RejectApprovalModal key={approvals.rejectingUser?.id ?? "empty"} user={approvals.rejectingUser} loading={approvals.processingId === approvals.rejectingUser?.id} onClose={() => approvals.setRejectingUser(null)} onSubmit={approvals.handleReject} />
     </DashboardPageShell>

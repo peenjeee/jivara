@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Lock, LogIn, Mail } from "lucide-react";
 import axios from "axios";
+import { getApiErrorMessage, isRateLimitError } from "@/lib/apiErrors";
 import { closeAlert, showError, showLoading, showToast, showWarning } from "@/lib/swal";
 import { useAuthStore } from "@/store/auth";
 import AuthCard from "@/components/ui/AuthCard";
@@ -89,8 +90,13 @@ export default function LoginForm() {
       showToast("Anda berhasil masuk.", "success");
       const callbackUrl = new URLSearchParams(window.location.search).get("callbackUrl");
       router.push(getPostLoginPath(user, callbackUrl));
-    } catch {
+    } catch (error) {
       closeAlert();
+      if (isRateLimitError(error)) {
+        showWarning(getApiErrorMessage(error, "Terlalu banyak percobaan login. Tunggu beberapa saat lalu coba lagi."), "Terlalu Banyak Percobaan");
+        return;
+      }
+
       showError("Login gagal. Periksa kembali email dan kata sandi Anda.");
     } finally {
       setLoading(false);

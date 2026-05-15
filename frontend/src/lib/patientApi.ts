@@ -85,6 +85,11 @@ interface AlertResponse {
   createdAt?: string | null;
 }
 
+interface AdherenceStatsResponse {
+  adherenceRate: number;
+  totalScheduled?: number;
+}
+
 const patientsCacheTtl = 30_000;
 let patientsCache: { data: PatientRecord[]; expiresAt: number } | null = null;
 let patientsRequest: Promise<PatientRecord[]> | null = null;
@@ -153,6 +158,16 @@ const mapPatient = (patient: PatientListResponse, adherence = 100): PatientRecor
   avatar: getInitials(patient.fullName || patient.user?.fullName || "-"),
   assignedNurseId: patient.assignedNurseId ?? undefined,
 });
+
+const normalizeAdherence = (adherence: number | null | undefined, totalScheduled?: number | null) => {
+  if (!totalScheduled) return 100;
+  return Math.round(adherence ?? 0);
+};
+
+const getPatientAdherenceRate = async (patientId: string) => {
+  const response = await api.get<{ data: AdherenceStatsResponse }>("/adherence", { params: { patient_id: patientId, period: "30d" } });
+  return normalizeAdherence(response.data.data.adherenceRate, response.data.data.totalScheduled);
+};
 
 const mapMedication = (patient: PatientRecord, medication: NonNullable<PatientDetailResponse["activeMedications"]>[number]): MedicationScheduleRecord => {
   const times = Array.isArray(medication.scheduledTimes) ? medication.scheduledTimes.filter((time): time is string => typeof time === "string") : [];
@@ -238,8 +253,9 @@ export const getPatientsFromApi = async () => {
   if (patientsRequest) return patientsRequest;
 
   patientsRequest = api.get<PaginatedResponse<PatientListResponse>>("/patients", { params: { limit: 100, status: "active" } })
-    .then((response) => {
-      const patients = response.data.data.map((patient) => mapPatient(patient, 100));
+    .then(async (response) => {
+      const adherenceRates = await Promise.all(response.data.data.map((patient) => getPatientAdherenceRate(patient.id)));
+      const patients = response.data.data.map((patient, index) => mapPatient(patient, adherenceRates[index] ?? 0));
       patientsCache = { data: patients, expiresAt: Date.now() + patientsCacheTtl };
       return patients;
     })
@@ -282,7 +298,9 @@ export const deactivatePatientViaApi = async (patientId: string) => {
 export const getPatientDetailFromApi = async (patientId: string): Promise<PatientDetailData> => {
   const response = await api.get<{ data: PatientDetailResponse }>(`/patients/${patientId}`);
   const detail = response.data.data;
-  const adherence = Math.round(detail.adherenceRate30d ?? detail.adherenceRate7d ?? 100);
+  const adherence = detail.activeMedicationsCount === 0
+    ? 100
+    : Math.round(detail.adherenceRate30d ?? detail.adherenceRate7d ?? 100);
   const patient = mapPatient({ ...detail, createdAt: detail.registeredAt ?? detail.createdAt }, adherence);
   const schedules = detail.activeMedications?.map((medication) => mapMedication(patient, medication)) ?? [];
   const scans = await getFoodScansForPatientFromApi(patientId).catch(() => []);
@@ -298,7 +316,8 @@ export const getPatientDetailFromApi = async (patientId: string): Promise<Patien
 
 export const getPatientsAssignedToNurseFromApi = async (nurseId: string) => {
   const response = await api.get<PaginatedResponse<PatientListResponse>>("/patients", { params: { limit: 100, status: "active", nurseId } });
-  return response.data.data.map((patient) => mapPatient(patient, 100));
+  const adherenceRates = await Promise.all(response.data.data.map((patient) => getPatientAdherenceRate(patient.id)));
+  return response.data.data.map((patient, index) => mapPatient(patient, adherenceRates[index] ?? 100));
 };
 
 export const assignPatientToNurseViaApi = async (patientId: string, nurseId: string) => {

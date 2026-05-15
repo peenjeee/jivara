@@ -4,6 +4,7 @@ import { useState, type FormEvent } from "react";
 import { Home, Mail, Phone, Save, User } from "lucide-react";
 import AuthInput from "@/components/ui/AuthInput";
 import Button from "@/components/ui/Button";
+import { getApiErrorMessage } from "@/lib/apiErrors";
 import { updateProfileViaApi } from "@/lib/profileApi";
 import { showToast, showWarning } from "@/lib/swal";
 import { useAuthStore } from "@/store/auth";
@@ -47,8 +48,8 @@ export default function PatientProfileSettingsForm() {
       const updatedUser = await updateProfileViaApi({ fullName: trimmedName, phone: trimmedPhone, address: trimmedAddress });
       setAuth(updatedUser);
       showToast("Profil pasien berhasil diperbarui.");
-    } catch {
-      showWarning("Profil pasien gagal diperbarui. Periksa koneksi atau data yang digunakan.");
+    } catch (error) {
+      showWarning(getApiErrorMessage(error, "Profil pasien gagal diperbarui. Periksa koneksi atau data yang digunakan."));
     } finally {
       setIsSaving(false);
     }
