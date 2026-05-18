@@ -1,4 +1,5 @@
 import api from "@/lib/axios";
+import { updateUserNotificationPreferenceViaApi, type UserNotificationPreferenceKey } from "@/lib/notificationSettingsApi";
 import type { User } from "@/types/auth";
 
 interface PatientResponse {
@@ -134,6 +135,13 @@ export const enableUserPushNotifications = async () => {
   });
 };
 
+const getDefaultUserPreferenceKey = (role: string): UserNotificationPreferenceKey | null => {
+  if (role === "nurse") return "nurse_critical_alert";
+  if (role === "admin") return "admin_critical_activity";
+  if (role === "super_admin") return "super_admin_approval";
+  return null;
+};
+
 export const tryEnableDefaultPushNotifications = async (user: Pick<User, "role">, options: { requestPermission?: boolean } = {}) => {
   if (typeof window === "undefined") return;
   const isIosStandalone = Boolean((window.navigator as Navigator & { standalone?: boolean }).standalone);
@@ -145,11 +153,14 @@ export const tryEnableDefaultPushNotifications = async (user: Pick<User, "role">
   try {
     if (user.role === "patient") {
       await enableMedicationPushNotifications();
+      await setMedicationPushPreference(true);
       return;
     }
 
-    if (["nurse", "admin", "super_admin"].includes(String(user.role))) {
+    const preferenceKey = getDefaultUserPreferenceKey(String(user.role));
+    if (preferenceKey) {
       await enableUserPushNotifications();
+      await updateUserNotificationPreferenceViaApi(preferenceKey, true);
     }
   } catch (error) {
     console.warn("[Jivara Push] Default subscription skipped", error);
